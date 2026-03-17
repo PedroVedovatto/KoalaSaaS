@@ -1,9 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Float, Text, ForeignKey, Boolean, Date
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
-
-Base = declarative_base()
+from .database import Base
 
 class Company(Base):
     __tablename__ = "companies"

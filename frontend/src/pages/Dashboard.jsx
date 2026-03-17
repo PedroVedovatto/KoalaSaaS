@@ -8,13 +8,16 @@ export default function Dashboard() {
   const [expiringContracts, setExpiringContracts] = useState([])
 
   useEffect(() => {
+    console.log('Dashboard useEffect triggered')
     const fetchData = async () => {
       try {
+        console.log('Fetching dashboard data...')
         const [statsResponse, contractsResponse] = await Promise.all([
           contractsAPI.getDashboardStats(),
           contractsAPI.getContracts({ limit: 10 })
         ])
         
+        console.log('Dashboard data received:', statsResponse.data, contractsResponse.data)
         setStats(statsResponse.data)
         setExpiringContracts(contractsResponse.data.filter(c => c.alert))
       } catch (error) {
@@ -49,6 +52,13 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600">Visão geral dos seus contratos e alertas</p>
       </div>
+
+      {stats.total_contracts === 0 && (
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-lg font-semibold text-gray-900">Comece adicionando seu primeiro contrato</h2>
+          <p className="mt-1 text-sm text-gray-600">Assim que você cadastrar contratos, os alertas e indicadores aparecem aqui automaticamente.</p>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

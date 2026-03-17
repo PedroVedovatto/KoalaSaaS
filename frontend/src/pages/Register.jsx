@@ -32,7 +32,11 @@ export default function Register({ setUser }) {
       setUser(response.data.user)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao criar conta')
+      console.error('Registration error:', err)
+      const errorMessage = err.response?.data?.detail || 
+                          err.response?.data?.message || 
+                          'Erro ao criar conta'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

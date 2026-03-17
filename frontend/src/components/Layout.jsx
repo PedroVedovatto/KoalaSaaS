@@ -2,7 +2,7 @@ import { Outlet, Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { Building2, FileText, LogOut, Menu, X } from 'lucide-react'
 
-export default function Layout({ user }) {
+export default function Layout({ user, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
 
@@ -97,7 +97,7 @@ export default function Layout({ user }) {
           </div>
         </div>
         <main className="p-6">
-          <Outlet />
+          {children ?? <Outlet />}
         </main>
       </div>
     </div>

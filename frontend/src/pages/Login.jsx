@@ -24,11 +24,20 @@ export default function Login({ setUser }) {
     setError('')
 
     try {
+      console.log('Attempting login with:', formData)
       const response = await authAPI.login(formData)
+      console.log('Login response:', response)
+      console.log('Access token:', response.data.access_token)
+      
       localStorage.setItem('token', response.data.access_token)
+      console.log('Token saved to localStorage:', localStorage.getItem('token'))
+      
       setUser(response.data.user)
+      console.log('User set:', response.data.user)
+      
       navigate('/dashboard')
     } catch (err) {
+      console.error('Login error:', err)
       setError(err.response?.data?.detail || 'Erro ao fazer login')
     } finally {
       setLoading(false)
