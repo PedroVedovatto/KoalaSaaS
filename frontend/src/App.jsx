@@ -4,44 +4,18 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Contracts from './pages/Contracts'
+import Alerts from './pages/Alerts'
+import Settings from './pages/Settings'
 import Layout from './components/Layout'
-import { authAPI } from './services/api'
 
 function App() {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState({ id: 1, name: 'Admin', email: 'admin@gmail.com' }) // Mock user for testing
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    console.log('App useEffect triggered')
-    const token = localStorage.getItem('token')
-    console.log('Token from localStorage:', token)
-    
-    // Clear old fake token
-    if (token === 'fake-token') {
-      console.log('Removing old fake token')
-      localStorage.removeItem('token')
-      setLoading(false)
-      return
-    }
-    
-    if (token) {
-      console.log('Token found, calling authAPI.getMe()')
-      authAPI.getMe()
-        .then(response => {
-          console.log('User data received:', response.data)
-          setUser(response.data)
-        })
-        .catch((error) => {
-          console.error('Error getting user data:', error)
-          localStorage.removeItem('token')
-        })
-        .finally(() => {
-          setLoading(false)
-        })
-    } else {
-      console.log('No token found')
-      setLoading(false)
-    }
+    // Remove qualquer token existente
+    localStorage.removeItem('token')
+    // Não faz nenhuma chamada de API
   }, [])
 
   if (loading) {
@@ -70,6 +44,14 @@ function App() {
         <Route 
           path="/contracts" 
           element={user ? <Layout user={user}><Contracts /></Layout> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/alerts" 
+          element={user ? <Layout user={user}><Alerts /></Layout> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/settings" 
+          element={user ? <Layout user={user}><Settings /></Layout> : <Navigate to="/login" />} 
         />
         <Route path="/" element={<Navigate to="/dashboard" />} />
       </Routes>

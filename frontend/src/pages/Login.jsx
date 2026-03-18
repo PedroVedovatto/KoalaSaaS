@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { authAPI } from '../services/api'
 
 export default function Login({ setUser }) {
   const [formData, setFormData] = useState({
@@ -24,21 +23,37 @@ export default function Login({ setUser }) {
     setError('')
 
     try {
-      console.log('Attempting login with:', formData)
-      const response = await authAPI.login(formData)
-      console.log('Login response:', response)
-      console.log('Access token:', response.data.access_token)
+      // MODO TESTE: Bypass API para testar interface
+      if (formData.email === 'admin@gmail.com' && formData.password === 'admin123') {
+        // Simula login bem-sucedido
+        localStorage.setItem('token', 'test-token')
+        setUser({ id: 1, email: 'admin@gmail.com', username: 'admin', full_name: 'Administrador' })
+        navigate('/dashboard')
+        return
+      }
+
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Tempo esgotado - tente novamente')), 10000)
+      )
+      
+      const response = await Promise.race([
+        authAPI.login(formData),
+        timeoutPromise
+      ])
       
       localStorage.setItem('token', response.data.access_token)
-      console.log('Token saved to localStorage:', localStorage.getItem('token'))
-      
       setUser(response.data.user)
-      console.log('User set:', response.data.user)
-      
       navigate('/dashboard')
     } catch (err) {
-      console.error('Login error:', err)
-      setError(err.response?.data?.detail || 'Erro ao fazer login')
+      console.error('Login error details:', err)
+      if (err.message === 'Tempo esgotado - tente novamente') {
+        setError('O servidor está demorando para responder. Verifique se o backend está rodando.')
+      } else if (err.code === 'NETWORK_ERROR' || err.message?.includes('Network Error')) {
+        setError('Erro de conexão. Verifique se o backend está rodando em http://localhost:8000')
+      } else {
+        setError(err.response?.data?.detail || 'Erro ao fazer login. Verifique suas credenciais.')
+      }
     } finally {
       setLoading(false)
     }

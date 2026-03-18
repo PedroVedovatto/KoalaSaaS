@@ -27,3 +27,93 @@ code {
 .alert-success {
   @apply bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4;
 }
+
+/* Dark mode styles */
+.dark .alert {
+  @apply bg-yellow-900 border-l-4 border-yellow-500 text-yellow-200;
+}
+
+.dark .alert-error {
+  @apply bg-red-900 border-l-4 border-red-500 text-red-200;
+}
+
+.dark .alert-success {
+  @apply bg-green-900 border-l-4 border-green-500 text-green-200;
+}
+
+/* Custom Select Styles */
+.custom-select {
+  @apply w-full px-4 py-2 bg-white border border-gray-300 rounded-lg 
+         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+         appearance-none cursor-pointer transition-all duration-200
+         hover:border-gray-400 shadow-sm;
+}
+
+.custom-select:hover {
+  @apply bg-gray-50;
+}
+
+.custom-select:focus {
+  @apply bg-white shadow-md;
+}
+
+/* Dark mode custom select */
+.dark .custom-select {
+  @apply bg-gray-800 border-gray-600 text-white hover:bg-gray-700;
+}
+
+.dark .custom-select:hover {
+  @apply bg-gray-700;
+}
+
+.dark .custom-select:focus {
+  @apply bg-gray-800;
+}
+
+/* For Webkit browsers (Chrome, Safari) */
+.custom-select::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-select::-webkit-scrollbar-track {
+  @apply bg-gray-100 rounded-lg;
+}
+
+.custom-select::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 rounded-lg hover:bg-gray-500;
+}
+
+/* Dark mode scrollbar */
+.dark .custom-select::-webkit-scrollbar-track {
+  @apply bg-gray-700 rounded-lg;
+}
+
+.dark .custom-select::-webkit-scrollbar-thumb {
+  @apply bg-gray-500 rounded-lg hover:bg-gray-400;
+}
+
+/* Option styles - subtle gray for selected */
+.custom-select option {
+  @apply bg-white text-gray-900;
+}
+
+.custom-select option:checked {
+  @apply bg-gray-100 text-gray-900;
+}
+
+.custom-select option:hover {
+  @apply bg-gray-50;
+}
+
+/* Dark mode option styles */
+.dark .custom-select option {
+  @apply bg-gray-800 text-white;
+}
+
+.dark .custom-select option:checked {
+  @apply bg-gray-700 text-white;
+}
+
+.dark .custom-select option:hover {
+  @apply bg-gray-600;
+}

@@ -1,10 +1,53 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
-import { Building2, FileText, LogOut, Menu, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Building2, FileText, LogOut, Menu, X, Bell, Settings } from 'lucide-react'
 
 export default function Layout({ user, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [unreadAlerts, setUnreadAlerts] = useState(0)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    // Load unread alerts from localStorage
+    const loadUnreadAlerts = () => {
+      try {
+        const savedAlerts = localStorage.getItem('alerts')
+        if (savedAlerts) {
+          const alerts = JSON.parse(savedAlerts)
+          const unreadCount = alerts.filter(alert => !alert.is_read).length
+          setUnreadAlerts(unreadCount)
+        } else {
+          setUnreadAlerts(2) // Default mock value
+        }
+      } catch (error) {
+        console.error('Error loading unread alerts:', error)
+        setUnreadAlerts(0)
+      }
+    }
+    
+    loadUnreadAlerts()
+    
+    // Listen for custom alerts update events
+    const handleAlertsUpdate = (e) => {
+      setUnreadAlerts(e.detail.unreadCount)
+    }
+    
+    window.addEventListener('alertsUpdated', handleAlertsUpdate)
+    
+    // Listen for storage changes to update counter in real-time
+    const handleStorageChange = (e) => {
+      if (e.key === 'alerts') {
+        loadUnreadAlerts()
+      }
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('alertsUpdated', handleAlertsUpdate)
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('token')
@@ -29,18 +72,31 @@ export default function Layout({ user, children }) {
               <Building2 className="w-5 h-5 mr-3" />
               Dashboard
             </Link>
-            <Link to="/contracts" className="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100">
+            <Link to="/contracts" className="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 mb-2">
               <FileText className="w-5 h-5 mr-3" />
               Contratos
+            </Link>
+            <Link to="/alerts" className="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 relative">
+              <Bell className="w-5 h-5 mr-3" />
+              Alertas
+              {unreadAlerts > 0 && (
+                <span className="absolute top-2 right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {unreadAlerts > 9 ? '9+' : unreadAlerts}
+                </span>
+              )}
+            </Link>
+            <Link to="/settings" className="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100">
+              <Settings className="w-5 h-5 mr-3" />
+              Configurações
             </Link>
           </nav>
           <div className="p-4 border-t">
             <div className="flex items-center mb-4">
               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                {user.username.charAt(0).toUpperCase()}
+                {(user.full_name || user.username || 'U').charAt(0).toUpperCase()}
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700">{user.full_name || user.username}</p>
+                <p className="text-sm font-medium text-gray-700">{user.full_name || user.username || 'Usuário'}</p>
                 <p className="text-xs text-gray-500">{user.email}</p>
               </div>
             </div>
@@ -63,18 +119,31 @@ export default function Layout({ user, children }) {
               <Building2 className="w-5 h-5 mr-3" />
               Dashboard
             </Link>
-            <Link to="/contracts" className="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100">
+            <Link to="/contracts" className="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 mb-2">
               <FileText className="w-5 h-5 mr-3" />
               Contratos
+            </Link>
+            <Link to="/alerts" className="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100 relative">
+              <Bell className="w-5 h-5 mr-3" />
+              Alertas
+              {unreadAlerts > 0 && (
+                <span className="absolute top-2 right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {unreadAlerts > 9 ? '9+' : unreadAlerts}
+                </span>
+              )}
+            </Link>
+            <Link to="/settings" className="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-100">
+              <Settings className="w-5 h-5 mr-3" />
+              Configurações
             </Link>
           </nav>
           <div className="p-4 border-t">
             <div className="flex items-center mb-4">
               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                {user.username.charAt(0).toUpperCase()}
+                {(user.full_name || user.username || 'U').charAt(0).toUpperCase()}
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700">{user.full_name || user.username}</p>
+                <p className="text-sm font-medium text-gray-700">{user.full_name || user.username || 'Usuário'}</p>
                 <p className="text-xs text-gray-500">{user.email}</p>
               </div>
             </div>

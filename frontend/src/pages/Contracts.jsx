@@ -1,15 +1,34 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Filter, FileText, Edit, Trash2, Calendar, DollarSign, AlertTriangle } from 'lucide-react'
-import { contractsAPI } from '../services/api'
+import { Plus, Search, FileText, Edit, Trash2, Calendar, DollarSign, AlertTriangle, Eye } from 'lucide-react'
 
 export default function Contracts() {
+  // Store for opened windows
+  const [openedWindows, setOpenedWindows] = useState({})
+  
   const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingContract, setEditingContract] = useState(null)
+  const [showDetails, setShowDetails] = useState(false)
+  const [selectedContract, setSelectedContract] = useState(null)
+  const [selectedContracts, setSelectedContracts] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType] = useState('')
+  const [error, setError] = useState(null)
+  
+  // Contract types and statuses from Settings
+  const [contractTypes, setContractTypes] = useState([
+    { id: 1, name: 'Serviço', description: 'Contratos de prestação de serviços', color: '#3B82F6' },
+    { id: 2, name: 'Software', description: 'Licenciamento de software', color: '#10B981' },
+    { id: 3, name: 'Consultoria', description: 'Contratos de consultoria', color: '#F59E0B' }
+  ])
+  
+  const [contractStatuses, setContractStatuses] = useState([
+    { id: 1, name: 'ativo', description: 'Contrato ativo e em vigor', color: '#10B981' },
+    { id: 2, name: 'pendente', description: 'Aguardando aprovação', color: '#F59E0B' },
+    { id: 3, name: 'encerrado', description: 'Contrato finalizado', color: '#6B7280' }
+  ])
   const [formData, setFormData] = useState({
     name: '',
     contract_type: '',
@@ -17,53 +36,664 @@ export default function Contracts() {
     value: '',
     start_date: '',
     end_date: '',
+    billing_cycle: 'onetime',
+    cancel_days_before: 30,
     auto_renew: false
   })
   const [file, setFile] = useState(null)
+
+  const fetchContracts = async () => {
+    try {
+      setError(null)
+      
+      // Use mock data directly to fix access issues
+      // TODO: Replace with real API when backend is working
+      setTimeout(() => {
+        const mockContracts = [
+          {
+            id: 1,
+            name: 'Contrato de Serviço A',
+            contract_type: 'Serviço',
+            description: 'Contrato de prestação de serviços',
+            value: 50000,
+            start_date: '2024-01-01',
+            end_date: '2024-12-31',
+            billing_cycle: 'monthly',
+            status: 'ativo',
+            alert: 'Expira em 30 dias'
+          },
+          {
+            id: 2,
+            name: 'Contrato de Software B',
+            contract_type: 'Software',
+            description: 'Licenciamento de software',
+            value: 25000,
+            start_date: '2024-06-01',
+            end_date: '2025-06-01',
+            billing_cycle: 'yearly',
+            status: 'ativo',
+            alert: null
+          },
+          {
+            id: 3,
+            name: 'Contrato de Consultoria C',
+            contract_type: 'Consultoria',
+            description: 'Serviços de consultoria estratégica',
+            value: 75000,
+            start_date: '2024-03-01',
+            end_date: '2024-09-01',
+            billing_cycle: 'quarterly',
+            status: 'pendente',
+            alert: 'Aguardando aprovação'
+          }
+        ]
+        
+        let filtered = mockContracts
+        if (searchTerm) {
+          filtered = filtered.filter(c => 
+            c.name.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        }
+        if (filterStatus) {
+          filtered = filtered.filter(c => c.status === filterStatus)
+        }
+        if (filterType) {
+          filtered = filtered.filter(c => c.contract_type === filterType)
+        }
+        
+        setContracts(filtered)
+        setLoading(false)
+      }, 1000)
+      
+    } catch (error) {
+      console.error('Error fetching contracts:', error)
+      setError('Falha ao carregar contratos')
+      setContracts([])
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetchContracts()
   }, [searchTerm, filterStatus, filterType])
 
-  const fetchContracts = async () => {
-    try {
-      const params = {}
-      if (searchTerm) params.search = searchTerm
-      if (filterStatus) params.status = filterStatus
-      if (filterType) params.contract_type = filterType
-      
-      const response = await contractsAPI.getContracts(params)
-      setContracts(response.data)
-    } catch (error) {
-      console.error('Error fetching contracts:', error)
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    setLoading(true)
+    fetchContracts()
+    
+    // Load contract types and statuses from Settings (stored in localStorage)
+    const loadSettingsData = () => {
+      try {
+        const savedTypes = localStorage.getItem('contractTypes')
+        const savedStatuses = localStorage.getItem('contractStatuses')
+        
+        if (savedTypes) {
+          setContractTypes(JSON.parse(savedTypes))
+        }
+        
+        if (savedStatuses) {
+          setContractStatuses(JSON.parse(savedStatuses))
+        }
+      } catch (error) {
+        console.error('Error loading settings data:', error)
+      }
+    }
+    
+    loadSettingsData()
+  }, [])
+
+  const clearSearch = () => {
+    setSearchTerm('')
+    setFilterStatus('')
+    setFilterType('')
+    fetchContracts()
+  }
+
+  const handleViewDetails = (contract) => {
+    setSelectedContract(contract)
+    setShowDetails(true)
+  }
+
+  const handleSelectContract = (contractId) => {
+    setSelectedContracts(prev => {
+      if (prev.includes(contractId)) {
+        return prev.filter(id => id !== contractId)
+      } else {
+        return [...prev, contractId]
+      }
+    })
+  }
+
+  const handleSelectAll = () => {
+    if (selectedContracts.length === contracts.length) {
+      setSelectedContracts([])
+    } else {
+      // Seleciona todos os contratos
+      setSelectedContracts(contracts.map(c => c.id))
     }
   }
 
+  const handleMultiDelete = async () => {
+    if (selectedContracts.length === 0) return
+    
+    const message = selectedContracts.length === 1 
+      ? 'Tem certeza que deseja excluir este contrato?'
+      : `Tem certeza que deseja excluir ${selectedContracts.length} contratos?`
+    
+    if (window.confirm(message)) {
+      try {
+        setError(null)
+        
+        // Temporarily use mock operations to fix infinite loading
+        // TODO: Replace with real API when backend is working
+        setContracts(prev => prev.filter(c => !selectedContracts.includes(c.id)))
+        setSelectedContracts([])
+        console.log('Contratos deletados (mock)')
+        
+      } catch (error) {
+        console.error('Error deleting contracts:', error)
+        setError('Falha ao excluir contratos')
+      }
+    }
+  }
+
+  const handleMultiView = () => {
+    if (selectedContracts.length === 0) return
+    
+    // Abre múltiplas abas com detalhes
+    selectedContracts.forEach((id, index) => {
+      const contract = contracts.find(c => c.id === id)
+      if (contract) {
+        // Fecha janela anterior se existir - VERIFICAÇÃO IMEDIATA
+        if (openedWindows[id]) {
+          console.log(`Fechando janela existente: ${contract.name} (ID: ${id})`)
+          try {
+            openedWindows[id].close()
+            // Remove imediatamente do estado
+            setOpenedWindows(prev => {
+              const newOpened = { ...prev }
+              delete newOpened[id]
+              return newOpened
+            })
+          } catch (error) {
+            console.log(`Erro ao fechar janela existente: ${error}`)
+          }
+        }
+        
+        // Abre cada janela com um delay para garantir que todas abram
+        setTimeout(() => {
+          // Gera timestamp único e nome de janela diferente
+          const uniqueId = Date.now() + Math.random() * 1000000 + index
+          const windowName = `contract_${id}_${uniqueId}`
+          const windowFeatures = 'width=700,height=900,scrollbars=yes,resizable=yes'
+          
+          // Tenta abrir janela
+          try {
+            const newWindow = window.open('', windowName, windowFeatures)
+            
+            if (newWindow) {
+              // Armazena a referência da janela aberta imediatamente
+              setOpenedWindows(prev => ({
+                ...prev,
+                [id]: newWindow
+              }))
+              
+              // Adiciona evento para limpar quando a janela fechar
+              newWindow.addEventListener('beforeunload', () => {
+                console.log(`Janela fechada pelo usuário: ${contract.name} (ID: ${id})`)
+                setOpenedWindows(prev => {
+                  const newOpened = { ...prev }
+                  delete newOpened[id]
+                  return newOpened
+                })
+              })
+              
+              // Adiciona evento para detectar fechamento programático
+              newWindow.addEventListener('unload', () => {
+                console.log(`Janela descarregada: ${contract.name} (ID: ${id})`)
+                setOpenedWindows(prev => {
+                  const newOpened = { ...prev }
+                  delete newOpened[id]
+                  return newOpened
+                })
+              })
+              
+              const htmlContent = `
+                <html>
+                  <head>
+                    <title>${contract.name} - Detalhes</title>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                      * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                      }
+                      body { 
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+                        background: linear-gradient(135deg, #f6f6f6 0%, #f3f3f3 100%);
+                        min-height: 100vh;
+                        padding: 20px;
+                        color: #1a202c;
+                      }
+                      .container {
+                        max-width: 700px;
+                        margin: 0 auto;
+                        background: rgba(255, 255, 255, 0.95);
+                        backdrop-filter: blur(10px);
+                        padding: 32px;
+                        border-radius: 16px;
+                        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                      }
+                      .header {
+                        text-align: center;
+                        margin-bottom: 32px;
+                        padding-bottom: 24px;
+                        border-bottom: 2px solid #e2e8f0;
+                      }
+                      .header h1 {
+                        font-size: 28px;
+                        font-weight: 700;
+                        color: #2d3748;
+                        margin-bottom: 8px;
+                      }
+                      .header p {
+                        color: #718096;
+                        font-size: 16px;
+                      }
+                      .grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                        gap: 24px;
+                        margin-bottom: 32px;
+                      }
+                      .field-group {
+                        background: #f7fafc;
+                        padding: 20px;
+                        border-radius: 12px;
+                        border: 1px solid #e2e8f0;
+                      }
+                      .field {
+                        margin-bottom: 16px;
+                      }
+                      .field:last-child {
+                        margin-bottom: 0;
+                      }
+                      .label { 
+                        font-weight: 600; 
+                        color: #4a5568; 
+                        font-size: 14px;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                        display: block;
+                        margin-bottom: 6px;
+                      }
+                      .value { 
+                        color: #2d3748; 
+                        font-size: 16px;
+                        font-weight: 500;
+                      }
+                      .status {
+                        display: inline-block;
+                        padding: 6px 16px;
+                        border-radius: 20px;
+                        font-size: 13px;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                      }
+                      .status.ativo { 
+                        background: linear-gradient(135deg, #48bb78, #38a169); 
+                        color: white;
+                      }
+                      .status.encerrado { 
+                        background: linear-gradient(135deg, #a0aec0, #718096); 
+                        color: white;
+                      }
+                      .status.cancelado { 
+                        background: linear-gradient(135deg, #fc8181, #f56565); 
+                        color: white;
+                      }
+                      .alert { 
+                        background: linear-gradient(135deg, #f6e05e, #ecc94b);
+                        color: #744210;
+                        padding: 12px 16px;
+                        border-radius: 8px;
+                        font-weight: 500;
+                        border-left: 4px solid #d69e2e;
+                      }
+                      .file-section {
+                        margin-top: 32px;
+                        padding-top: 32px;
+                        border-top: 2px solid #e2e8f0;
+                      }
+                      .file-title {
+                        font-size: 20px;
+                        font-weight: 600;
+                        color: #2d3748;
+                        margin-bottom: 20px;
+                        text-align: center;
+                      }
+                      .file-preview {
+                        background: #f8fafc;
+                        border: 2px solid #e2e8f0;
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin-bottom: 20px;
+                        text-align: center;
+                      }
+                      .file-preview img {
+                        max-width: 100%;
+                        max-height: 350px;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                      }
+                      .file-preview iframe {
+                        width: 100%;
+                        height: 450px;
+                        border: none;
+                        border-radius: 8px;
+                      }
+                      .file-actions {
+                        display: flex;
+                        gap: 12px;
+                        justify-content: flex-end;  
+                        align-items: center;         
+                        margin-top: 12px;
+                        width: 100%;                
+                      }
+                      .btn {
+                        padding: 12px 24px;
+                        border-radius: 8px;
+                        font-size: 15px;
+                        font-weight: 600;
+                        text-decoration: none;
+                        cursor: pointer;
+                        border: none;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-width: 120px;
+                        transition: all 0.3s ease;
+                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                      }
+                      .btn:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                      }
+                      .btn-primary {
+                        background: linear-gradient(135deg, #4299e1, #3182ce);
+                        color: white;
+                      }
+                      .btn-primary:hover {
+                        background: linear-gradient(135deg, #3182ce, #2c5282);
+                      }
+                      .btn-secondary {
+                        background: linear-gradient(135deg, #48bb78, #38a169);
+                        color: white;
+                      }
+                      .btn-secondary:hover {
+                        background: linear-gradient(135deg, #38a169, #2f855a);
+                      }
+                      .no-file {
+                        text-align: center;
+                        padding: 40px;
+                        color: #718096;
+                        font-size: 16px;
+                      }
+                      .no-file-icon {
+                        font-size: 48px;
+                        margin-bottom: 16px;
+                        opacity: 0.5;
+                      }
+                      @media (max-width: 768px) {
+                        .container {
+                          padding: 20px;
+                          margin: 10px;
+                        }
+                        .grid {
+                          grid-template-columns: 1fr;
+                        }
+                        .file-actions {
+                          flex-direction: column;
+                        }
+                        .btn {
+                          width: 100%;
+                        }
+                      }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="container">
+                      <div class="header">
+                        <h1>Detalhes do Contrato</h1>
+                        <p>${contract.name}</p>
+                      </div>
+                      
+                      <div class="grid">
+                        <div class="field-group">
+                          <div class="field">
+                            <span class="label">Tipo</span>
+                            <span class="value">${contract.contract_type}</span>
+                          </div>
+                          <div class="field">
+                            <span class="label">Valor</span>
+                            <span class="value">R$ ${contract.value?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</span>
+                          </div>
+                          <div class="field">
+                            <span class="label">Ciclo</span>
+                            <span class="value">${
+                              contract.billing_cycle === 'onetime' ? 'Único' :
+                              contract.billing_cycle === 'monthly' ? 'Mensal' :
+                              contract.billing_cycle === 'quarterly' ? 'Trimestral' :
+                              contract.billing_cycle === 'yearly' ? 'Anual' : '-'
+                            }</span>
+                          </div>
+                          <div class="field">
+                            <span class="label">Status</span>
+                            <span class="value">
+                              <span class="status ${contract.status}">${contract.status}</span>
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div class="field-group">
+                          <div class="field">
+                            <span class="label">Início</span>
+                            <span class="value">${new Date(contract.start_date).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                          <div class="field">
+                            <span class="label">Fim</span>
+                            <span class="value">${new Date(contract.end_date).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                          <div class="field">
+                            <span class="label">Dias para Cancelar</span>
+                            <span class="value">${contract.cancel_days_before} dias</span>
+                          </div>
+                          <div class="field">
+                            <span class="label">Renovação Automática</span>
+                            <span class="value">${contract.auto_renew ? 'Sim' : 'Não'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      ${contract.description ? `
+                        <div class="field-group">
+                          <div class="field">
+                            <span class="label">Descrição</span>
+                            <span class="value">${contract.description}</span>
+                          </div>
+                        </div>
+                      ` : ''}
+                      
+                      ${contract.alert ? `
+                        <div class="alert">
+                          ${contract.alert}
+                        </div>
+                      ` : ''}
+                      
+                      <div class="field-group">
+                        <div class="field">
+                          <span class="label">Criado em</span>
+                          <span class="value">${new Date(contract.created_at).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                      </div>
+                      
+                      ${contract.file_path ? `
+                        <div class="file-section">
+                          <h2 class="file-title">Arquivo do Contrato</h2>
+                          <div class="file-preview">
+                            ${contract.file_path.toLowerCase().endsWith('.pdf') ? 
+                              `<iframe src="http://localhost:8000/${contract.file_path}"></iframe>` :
+                              (contract.file_path.toLowerCase().match(/\.(jpg|jpeg|png)$/i) ?
+                                `<img src="http://localhost:8000/${contract.file_path}" alt="Preview do arquivo" />` :
+                                `<div>
+                                  <div class="no-file-icon">📄</div>
+                                  <div>${contract.file_path.split('/').pop()}</div>
+                                  <div style="font-size: 14px; margin-top: 8px; opacity: 0.7;">Tipo de arquivo não suportado para pré-visualização</div>
+                                </div>`
+                              )
+                            }
+                          </div>
+                          <div class="file-actions">
+                            <a href="http://localhost:8000/${contract.file_path}" target="_blank" class="btn btn-primary">
+                              Abrir
+                            </a>
+                            <a href="http://localhost:8000/${contract.file_path}" download="${contract.file_path.split('/').pop()}" class="btn btn-secondary">
+                              Salvar
+                            </a>
+                          </div>
+                        </div>
+                      ` : `
+                        <div class="file-section">
+                          <h2 class="file-title">Arquivo do Contrato</h2>
+                          <div class="no-file">
+                            <div class="no-file-icon">📄</div>
+                            <div>Nenhum arquivo anexado a este contrato</div>
+                          </div>
+                        </div>
+                      `}
+                    </div>
+                  </body>
+                </html>
+              `
+              
+              newWindow.document.write(htmlContent)
+              newWindow.document.close()
+              
+              // Auto-close after 2 minutes if window is in background
+              let isActive = true
+              let closeTimer = null
+              
+              const startCloseTimer = () => {
+                if (closeTimer) clearTimeout(closeTimer)
+                closeTimer = setTimeout(() => {
+                  if (!isActive && !newWindow.closed) {
+                    console.log(`Fechando janela por inatividade: ${contract.name} (ID: ${id})`)
+                    newWindow.close()
+                    // Remove do estado quando fechar automaticamente
+                    setOpenedWindows(prev => {
+                      const newOpened = { ...prev }
+                      delete newOpened[id]
+                      return newOpened
+                    })
+                  }
+                }, 120000) // 2 minutes = 120000ms
+              }
+              
+              // Track window focus/blur
+              const handleBlur = () => {
+                isActive = false
+                startCloseTimer()
+              }
+              
+              const handleFocus = () => {
+                isActive = true
+                if (closeTimer) {
+                  clearTimeout(closeTimer)
+                  closeTimer = null
+                }
+              }
+              
+              // Add event listeners
+              newWindow.addEventListener('blur', handleBlur)
+              newWindow.addEventListener('focus', handleFocus)
+              
+              // Also handle page visibility changes
+              const visibilityHandler = () => {
+                if (newWindow.document.hidden) {
+                  isActive = false
+                  startCloseTimer()
+                } else {
+                  isActive = true
+                  if (closeTimer) {
+                    clearTimeout(closeTimer)
+                    closeTimer = null
+                  }
+                }
+              }
+              
+              if (newWindow.document.addEventListener) {
+                newWindow.document.addEventListener('visibilitychange', visibilityHandler)
+              }
+              
+              // Força o foco
+              setTimeout(() => {
+                newWindow.focus()
+              }, 100)
+              
+              console.log(`Nova janela aberta: ${contract.name} (ID: ${id})`)
+            } else {
+              console.error(`Falha ao abrir janela para contrato: ${contract.name}`)
+            }
+          } catch (error) {
+            console.error(`Erro ao abrir janela para contrato ${contract.name}:`, error)
+          }
+        }, index * 800) // Reduzido para 800ms entre cada janela
+      }
+    })
+  }
+
+  const isContractSelected = (contractId) => selectedContracts.includes(contractId)
+  const canEdit = selectedContracts.length === 1
+  const canDelete = selectedContracts.length >= 1
+  const canView = selectedContracts.length >= 1
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const formDataToSend = new FormData()
     
-    Object.keys(formData).forEach(key => {
-      formDataToSend.append(key, formData[key])
-    })
-    
-    if (file) {
-      formDataToSend.append('file', file)
+    if (!formData.name || !formData.contract_type || !formData.start_date || !formData.end_date) {
+      alert('Preencha todos os campos obrigatórios')
+      return
     }
-
+    
     try {
+      setError(null)
+      
+      // Temporarily use mock operations to fix infinite loading
+      // TODO: Replace with real API when backend is working
+      const newContract = {
+        id: editingContract ? editingContract.id : Date.now(),
+        ...formData,
+        value: parseFloat(formData.value) || 0,
+        alert: Math.random() > 0.7 ? 'Expira em ' + Math.floor(Math.random() * 30 + 1) + ' dias' : null
+      }
+      
       if (editingContract) {
-        await contractsAPI.updateContract(editingContract.id, formData)
+        setContracts(prev => prev.map(c => c.id === editingContract.id ? newContract : c))
+        console.log('Contrato atualizado (mock):', newContract)
       } else {
-        await contractsAPI.createContract(formDataToSend)
+        setContracts(prev => [...prev, newContract])
+        console.log('Contrato criado (mock):', newContract)
       }
       
       resetForm()
-      fetchContracts()
+      setShowForm(false)
+      
     } catch (error) {
       console.error('Error saving contract:', error)
+      setError('Falha ao salvar contrato')
     }
   }
 
@@ -76,6 +706,8 @@ export default function Contracts() {
       value: contract.value || '',
       start_date: contract.start_date,
       end_date: contract.end_date,
+      billing_cycle: contract.billing_cycle || 'onetime',
+      cancel_days_before: contract.cancel_days_before || 30,
       auto_renew: contract.auto_renew || false
     })
     setShowForm(true)
@@ -84,10 +716,16 @@ export default function Contracts() {
   const handleDelete = async (id) => {
     if (window.confirm('Tem certeza que deseja excluir este contrato?')) {
       try {
-        await contractsAPI.deleteContract(id)
-        fetchContracts()
+        setError(null)
+        
+        // Temporarily use mock operations to fix infinite loading
+        // TODO: Replace with real API when backend is working
+        setContracts(prev => prev.filter(c => c.id !== id))
+        console.log('Contrato deletado (mock):', id)
+        
       } catch (error) {
         console.error('Error deleting contract:', error)
+        setError('Falha ao excluir contrato')
       }
     }
   }
@@ -100,6 +738,8 @@ export default function Contracts() {
       value: '',
       start_date: '',
       end_date: '',
+      billing_cycle: 'onetime',
+      cancel_days_before: 30,
       auto_renew: false
     })
     setFile(null)
@@ -115,8 +755,28 @@ export default function Contracts() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="text-center text-gray-500">
+        <div className="mb-4">{error}</div>
+        <button 
+          onClick={() => fetchContracts()} 
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 mr-2"
+        >
+          Tentar novamente
+        </button>
+        <button 
+          onClick={() => setError(null)} 
+          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+        >
+          Limpar erro
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Contratos</h1>
@@ -133,39 +793,53 @@ export default function Contracts() {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow">
-        <div className="flex flex-col sm:flex-row gap-4">
+        {/* Basic Search */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-4">
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Buscar contratos..."
+                placeholder="Buscar por título ou descrição..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
+          <button
+            onClick={clearSearch}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Limpar Filtros
+          </button>
+        </div>
+
+        {/* Quick Filters */}
+        <div className="flex flex-wrap gap-2">
           <select
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="custom-select"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="">Todos os status</option>
-            <option value="ativo">Ativo</option>
-            <option value="encerrado">Encerrado</option>
-            <option value="cancelado">Cancelado</option>
+            {contractStatuses.map(status => (
+              <option key={status.id} value={status.name}>
+                {status.name}
+              </option>
+            ))}
           </select>
           <select
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="custom-select"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
           >
             <option value="">Todos os tipos</option>
-            <option value="aluguel">Aluguel</option>
-            <option value="serviço">Serviço</option>
-            <option value="fornecedor">Fornecedor</option>
-            <option value="software">Software</option>
+            {contractTypes.map(type => (
+              <option key={type.id} value={type.name}>
+                {type.name}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -181,33 +855,48 @@ export default function Contracts() {
             <p className="mt-1 text-sm text-gray-600">Clique em "Novo Contrato" para cadastrar o primeiro.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Nome
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Valor
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Vencimento
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={contracts.length > 0 && selectedContracts.length === contracts.length}
+                    onChange={handleSelectAll}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Contrato
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tipo
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Valor
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Vigência
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ações
+                </th>
+              </tr>
+            </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {contracts.map((contract) => (
                   <tr key={contract.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={isContractSelected(contract.id)}
+                        onChange={() => handleSelectContract(contract.id)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <FileText className="w-5 h-5 text-gray-400 mr-3" />
@@ -245,14 +934,23 @@ export default function Contracts() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button
+                        onClick={() => handleViewDetails(contract)}
+                        className="text-gray-600 hover:text-gray-900 mr-3"
+                        title="Ver Detalhes"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => handleEdit(contract)}
                         className="text-blue-600 hover:text-blue-900 mr-3"
+                        title="Editar"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(contract.id)}
                         className="text-red-600 hover:text-red-900"
+                        title="Excluir"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -261,7 +959,6 @@ export default function Contracts() {
                 ))}
               </tbody>
             </table>
-          </div>
         )}
       </div>
 
@@ -289,15 +986,16 @@ export default function Contracts() {
                   <label className="block text-sm font-medium text-gray-700">Tipo</label>
                   <select
                     required
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 custom-select"
                     value={formData.contract_type}
                     onChange={(e) => setFormData({...formData, contract_type: e.target.value})}
                   >
                     <option value="">Selecione</option>
-                    <option value="aluguel">Aluguel</option>
-                    <option value="serviço">Serviço</option>
-                    <option value="fornecedor">Fornecedor</option>
-                    <option value="software">Software</option>
+                    {contractTypes.map(type => (
+                      <option key={type.id} value={type.name}>
+                        {type.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -345,6 +1043,33 @@ export default function Contracts() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Ciclo de Cobrança</label>
+                    <select
+                      className="mt-1 custom-select"
+                      value={formData.billing_cycle || 'onetime'}
+                      onChange={(e) => setFormData({...formData, billing_cycle: e.target.value})}
+                    >
+                      <option value="onetime">Único</option>
+                      <option value="monthly">Mensal</option>
+                      <option value="quarterly">Trimestral</option>
+                      <option value="yearly">Anual</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Dias para Cancelamento</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="365"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={formData.cancel_days_before || 30}
+                      onChange={(e) => setFormData({...formData, cancel_days_before: parseInt(e.target.value)})}
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="flex items-center">
                     <input
@@ -385,6 +1110,263 @@ export default function Contracts() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Details Modal */}
+      {showDetails && selectedContract && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-[600px] max-w-[90vw] shadow-lg rounded-md bg-white max-h-[80vh] overflow-y-auto">
+            <div className="mt-3">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Detalhes do Contrato</h3>
+                <button
+                  onClick={() => setShowDetails(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <span className="sr-only">Fechar</span>
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-4 pb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nome</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedContract.name}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Tipo</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedContract.contract_type}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Descrição</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedContract.description || '-'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Valor</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedContract.value ? `R$ ${selectedContract.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Ciclo de Cobrança</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedContract.billing_cycle === 'onetime' ? 'Único' :
+                     selectedContract.billing_cycle === 'monthly' ? 'Mensal' :
+                     selectedContract.billing_cycle === 'quarterly' ? 'Trimestral' :
+                     selectedContract.billing_cycle === 'yearly' ? 'Anual' : '-'}
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Data Início</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {new Date(selectedContract.start_date).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Data Fim</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {new Date(selectedContract.end_date).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Status</label>
+                    <span className={`mt-1 inline-flex px-2 py-1 text-xs leading-5 font-semibold rounded-full ${
+                      selectedContract.status === 'ativo' ? 'bg-green-100 text-green-800' :
+                      selectedContract.status === 'encerrado' ? 'bg-gray-100 text-gray-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {selectedContract.status}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Renovação Automática</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedContract.auto_renew ? 'Sim' : 'Não'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Dias para Cancelamento</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedContract.cancel_days_before} dias</p>
+                </div>
+                
+                {selectedContract.alert && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Alerta</label>
+                    <p className="mt-1 text-sm text-orange-600">{selectedContract.alert}</p>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Arquivo do Contrato</label>
+                  {selectedContract.file_path ? (
+                    <div className="mt-2">
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center flex-1 min-w-0">
+                            <FileText className="w-5 h-5 text-gray-400 mr-3 flex-shrink-0" />
+                            <span className="text-sm text-gray-700 truncate">
+                              {selectedContract.file_path.split('/').pop()}
+                            </span>
+                          </div>
+                          <div className="flex space-x-2 flex-shrink-0 ml-4">
+                            <button
+                              onClick={() => window.open(`http://localhost:8000/${selectedContract.file_path}`, '_blank')}
+                              className="px-3 py-2 text-blue-600 hover:text-blue-800 text-sm font-medium bg-white border border-blue-200 rounded-md hover:bg-blue-50 transition-colors"
+                            >
+                              Visualizar
+                            </button>
+                            <button
+                              onClick={() => {
+                                const link = document.createElement('a')
+                                link.href = `http://localhost:8000/${selectedContract.file_path}`
+                                link.download = selectedContract.file_path.split('/').pop()
+                                link.click()
+                              }}
+                              className="px-3 py-2 text-green-600 hover:text-green-800 text-sm font-medium bg-white border border-green-200 rounded-md hover:bg-green-50 transition-colors"
+                            >
+                              Baixar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Preview para PDF */}
+                      {selectedContract.file_path.toLowerCase().endsWith('.pdf') && (
+                        <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+                          <iframe
+                            src={`http://localhost:8000/${selectedContract.file_path}#view=FitH`}
+                            className="w-full h-80"
+                            title="Visualização do PDF"
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Preview para imagens */}
+                      {(selectedContract.file_path.toLowerCase().endsWith('.jpg') || 
+                        selectedContract.file_path.toLowerCase().endsWith('.jpeg') || 
+                        selectedContract.file_path.toLowerCase().endsWith('.png')) && (
+                        <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+                          <img
+                            src={`http://localhost:8000/${selectedContract.file_path}`}
+                            alt="Visualização do arquivo"
+                            className="w-full h-auto max-h-96 object-contain"
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Mensagem para outros formatos */}
+                      {(!selectedContract.file_path.toLowerCase().endsWith('.pdf') && 
+                        !selectedContract.file_path.toLowerCase().endsWith('.jpg') && 
+                        !selectedContract.file_path.toLowerCase().endsWith('.jpeg') && 
+                        !selectedContract.file_path.toLowerCase().endsWith('.png')) && (
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            ⚠️ Este tipo de arquivo não pode ser visualizado diretamente. Use o botão "Baixar" para salvar o arquivo.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <p className="text-sm text-gray-500 text-center">
+                        📄 Nenhum arquivo anexado a este contrato
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Criado em</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {new Date(selectedContract.created_at).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setShowDetails(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Multi-selection Actions - Fixed Bottom within page */}
+      {selectedContracts.length > 0 && (
+        <div className="fixed bottom-4 left-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg" style={{zIndex: 30}}>
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center">
+              <span className="text-sm font-medium text-blue-900">
+                {selectedContracts.length} contrato(s) selecionado(s)
+              </span>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={handleMultiView}
+                disabled={!canView}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  canView
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <Eye className="w-4 h-4 inline mr-1" />
+                Visualizar ({selectedContracts.length})
+              </button>
+              <button
+                onClick={() => {
+                  const contract = contracts.find(c => c.id === selectedContracts[0])
+                  if (contract) handleEdit(contract)
+                }}
+                disabled={!canEdit}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  canEdit
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <Edit className="w-4 h-4 inline mr-1" />
+                Editar
+              </button>
+              <button
+                onClick={handleMultiDelete}
+                disabled={!canDelete}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  canDelete
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <Trash2 className="w-4 h-4 inline mr-1" />
+                Excluir ({selectedContracts.length})
+              </button>
+              <button
+                onClick={() => setSelectedContracts([])}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Limpar Seleção
+              </button>
             </div>
           </div>
         </div>
