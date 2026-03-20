@@ -6,6 +6,38 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 })
 
+// Add interceptor to include auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// Handle auth errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.log('API Error:', error)
+    console.log('Error status:', error.response?.status)
+    console.log('Error URL:', error.config?.url)
+    
+    if (error.response?.status === 401) {
+      console.log('401 Unauthorized - logging out')
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),

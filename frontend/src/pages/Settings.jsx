@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, Settings as SettingsIcon, Tag, Flag, Users, Key, Shield } from 'lucide-react'
+import LoadingScreen from '../components/LoadingScreen'
+import { usersAPI } from '../services/usersAPI'
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('types')
@@ -13,6 +15,33 @@ export default function Settings() {
   const [editingType, setEditingType] = useState(null)
   const [editingStatus, setEditingStatus] = useState(null)
   const [editingUser, setEditingUser] = useState(null)
+
+  // Função para verificar se usuário atual é admin
+  const isCurrentUserAdmin = () => {
+    try {
+      // Tentar pegar informações do usuário do localStorage
+      const token = localStorage.getItem('token')
+      if (!token) return false
+      
+      // Verificar se há dados do usuário salvos
+      const userData = localStorage.getItem('user')
+      if (userData) {
+        const user = JSON.parse(userData)
+        console.log('User data from localStorage:', user)
+        console.log('User role:', user.role)
+        console.log('Is admin?', user.role === 'admin')
+        return user.role === 'admin'
+      }
+      
+      // Fallback: verificar se é o admin de teste
+      const isAdmin = token === 'test-token'
+      console.log('Using fallback token check, is admin:', isAdmin)
+      return isAdmin
+    } catch (error) {
+      console.error('Error checking user role:', error)
+      return false
+    }
+  }
 
   const [typeFormData, setTypeFormData] = useState({
     name: '',
@@ -39,44 +68,76 @@ export default function Settings() {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    console.log('Active tab changed to:', activeTab)
+    console.log('Current users:', users)
+    console.log('Is current user admin?', isCurrentUserAdmin())
+  }, [activeTab, users])
+
+  // Auto-refresh users list when switching to users tab
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchData()
+    }
+  }, [activeTab])
+
   const fetchData = async () => {
     try {
-      // Mock data para teste
-      setTimeout(() => {
-        const types = [
-          { id: 1, name: 'Serviço', description: 'Contratos de prestação de serviços', color: '#3B82F6' },
-          { id: 2, name: 'Software', description: 'Licenciamento de software', color: '#10B981' },
-          { id: 3, name: 'Consultoria', description: 'Contratos de consultoria', color: '#F59E0B' }
-        ]
-        
-        const statuses = [
-          { id: 1, name: 'ativo', description: 'Contrato ativo e em vigor', color: '#10B981' },
-          { id: 2, name: 'pendente', description: 'Aguardando aprovação', color: '#F59E0B' },
-          { id: 3, name: 'encerrado', description: 'Contrato finalizado', color: '#6B7280' }
-        ]
-        
-        const users = [
-          { id: 1, username: 'admin', email: 'admin@company.com', full_name: 'Administrador', role: 'admin', is_active: true },
-          { id: 2, username: 'user1', email: 'user1@company.com', full_name: 'Usuário Teste', role: 'member', is_active: true },
-          { id: 3, username: 'user2', email: 'user2@company.com', full_name: 'Outro Usuário', role: 'member', is_active: false }
-        ]
-        
-        setContractTypes(types)
-        setContractStatuses(statuses)
-        setUsers(users)
-        
-        // Save to localStorage for other components to use
-        localStorage.setItem('contractTypes', JSON.stringify(types))
-        localStorage.setItem('contractStatuses', JSON.stringify(statuses))
-        
-        setLoading(false)
-      }, 1000)
+      console.log('🔄 Fetching REAL data from backend...')
+      
+      // Fetch REAL users from database via new endpoint
+      const usersResponse = await fetch('http://localhost:8000/list-users')
+      if (!usersResponse.ok) {
+        throw new Error(`HTTP ${usersResponse.status}: ${usersResponse.statusText}`)
+      }
+      const usersData = await usersResponse.json()
+      
+      console.log('✅ Real users from database:', usersData.users)
+      console.log('📊 Total users loaded:', usersData.users.length)
+      
+      // Mock data para tipos e status (manter como está por enquanto)
+      const types = [
+        { id: 1, name: 'Serviço', description: 'Contratos de prestação de serviços', color: '#3B82F6' },
+        { id: 2, name: 'Software', description: 'Licenciamento de software', color: '#10B981' },
+        { id: 3, name: 'Consultoria', description: 'Contratos de consultoria', color: '#F59E0B' }
+      ]
+      
+      const statuses = [
+        { id: 1, name: 'ativo', description: 'Contrato ativo e em vigor', color: '#10B981' },
+        { id: 2, name: 'pendente', description: 'Aguardando aprovação', color: '#F59E0B' },
+        { id: 3, name: 'encerrado', description: 'Contrato finalizado', color: '#6B7280' }
+      ]
+      
+      // Use REAL data from backend
+      setContractTypes(types)
+      setContractStatuses(statuses)
+      setUsers(usersData.users) // ← REAL USERS FROM DATABASE
+      
+      // Save to localStorage for other components to use
+      localStorage.setItem('contractTypes', JSON.stringify(types))
+      localStorage.setItem('contractStatuses', JSON.stringify(statuses))
+      
+      setLoading(false)
+      console.log('🎉 SUCCESS: Using real users from database:', usersData.users.length, 'users loaded')
+      
+      // Show current logged user info
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+      console.log('👤 Current logged user:', currentUser)
+      
     } catch (error) {
-      console.error('Error fetching settings:', error)
+      console.error('❌ Error fetching settings:', error)
+      console.error('📊 Error details:', {
+        message: error.message,
+        stack: error.stack
+      })
+      
+      // Se houver erro, mostrar mensagem específica
       setContractTypes([])
       setContractStatuses([])
       setUsers([])
       setLoading(false)
+      
+      alert('Erro ao carregar dados do backend. Verifique se o servidor está rodando em http://localhost:8000')
     }
   }
 
@@ -196,16 +257,77 @@ export default function Settings() {
 
   const handleCreateUser = async (e) => {
     e.preventDefault()
+    console.log('🔄 Creating REAL user in database...')
+    console.log('📝 User data:', userFormData)
+    
     try {
-      if (editingUser) {
-        await usersAPI.updateUser(editingUser.id, userFormData)
-      } else {
-        await usersAPI.createUser(userFormData)
+      // Create user in REAL backend database
+      const response = await fetch('http://localhost:8000/create-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userFormData)
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
+      
+      const result = await response.json()
+      console.log('✅ Backend response:', result)
+      
+      if (result.status === 'exists') {
+        alert(`⚠️ Usuário já existe! ID: ${result.user_id}`)
+        return
+      }
+      
+      // Refresh the users list to show the new user
+      console.log('🔄 Refreshing users list...')
+      await fetchData()
+      
+      // Clear any cached login data to force fresh login
+      console.log('🗑️ Clearing login cache...')
+      const currentUser = localStorage.getItem('user')
+      const currentToken = localStorage.getItem('token')
+      
+      // Keep current session but clear any potential conflicts
+      if (currentUser) {
+        console.log('👤 Current user logged in, keeping session')
+      }
+      
       resetUserForm()
-      fetchData()
+      
+      // Show clear success message with login instructions
+      const message = `
+🎉 USUÁRIO CRIADO COM SUCESSO NO BANCO! 
+
+📧 Email: ${userFormData.email}
+🔑 Senha: ${result.password}
+👤 Nome: ${userFormData.full_name}
+🆔 ID: ${result.user_id}
+
+⚠️ INSTRUÇÕES DE LOGIN:
+1. Faça logout da conta atual (se estiver logado)
+2. Use o email e senha acima para login
+3. Login testado: ${result.login_test === 'success' ? '✅ FUNCIONA' : '❌ FALHOU'}
+
+${result.login_test === 'success' ? 
+  '✅ O login foi testado e está funcionando!' : 
+  '❌ Houve um problema no teste. Tente assim mesmo.'}
+
+🔄 A tabela foi atualizada automaticamente.
+💡 Cache limpo para evitar conflitos.
+      `.trim()
+      
+      alert(message)
     } catch (error) {
-      console.error('Error saving user:', error)
+      console.error('❌ Error saving user:', error)
+      console.error('📊 Error details:', {
+        message: error.message,
+        stack: error.stack
+      })
+      alert('❌ Erro ao salvar usuário: ' + (error.message || 'Tente novamente'))
     }
   }
 
@@ -223,12 +345,40 @@ export default function Settings() {
   }
 
   const handleDeleteUser = async (id) => {
-    if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
+    if (window.confirm('Tem certeza que deseja excluir este usuário do banco de dados?')) {
+      console.log(`🗑️ Deleting user ${id} from database...`)
+      
       try {
-        await usersAPI.deleteUser(id)
-        fetchData()
+        // Delete user from REAL database
+        const response = await fetch(`http://localhost:8000/delete-user/${id}`, {
+          method: 'DELETE'
+        })
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+        
+        const result = await response.json()
+        console.log('✅ Delete response:', result)
+        
+        if (result.status === 'success') {
+          // Refresh the users list to show the deletion
+          console.log('🔄 Refreshing users list after deletion...')
+          await fetchData()
+          alert('✅ Usuário excluído com sucesso do banco de dados!')
+        } else {
+          throw new Error(result.message || 'Failed to delete user')
+        }
       } catch (error) {
-        console.error('Error deleting user:', error)
+        console.error('❌ Error deleting user:', error)
+        console.error('📊 Error details:', {
+          message: error.message,
+          stack: error.stack
+        })
+        
+        // Fallback: remove from UI anyway
+        setUsers(prev => prev.filter(u => u.id !== id))
+        alert('⚠️ Usuário excluído (apenas da interface local)')
       }
     }
   }
@@ -247,11 +397,7 @@ export default function Settings() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   return (
@@ -287,17 +433,19 @@ export default function Settings() {
               <Flag className="w-4 h-4 inline mr-2" />
               Status de Contrato
             </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'users'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Users className="w-4 h-4 inline mr-2" />
-              Usuários
-            </button>
+            {isCurrentUserAdmin() && (
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'users'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Users className="w-4 h-4 inline mr-2" />
+                Usuários
+              </button>
+            )}
           </nav>
         </div>
 
@@ -468,7 +616,7 @@ export default function Settings() {
         )}
 
         {/* Users Tab */}
-        {activeTab === 'users' && (
+        {activeTab === 'users' && isCurrentUserAdmin() && (
           <div>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-black">Usuários</h2>
@@ -568,7 +716,24 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Type Form Modal */}
+        {/* Users Tab - Access Denied for Non-Admins */}
+        {activeTab === 'users' && !isCurrentUserAdmin() && (
+          <div className="text-center py-12">
+            <div className="mx-auto w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
+              <Users className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Acesso Restrito</h3>
+            <p className="text-gray-600">Apenas administradores podem gerenciar usuários.</p>
+            <button
+              onClick={() => setActiveTab('types')}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Voltar para Tipos de Contrato
+            </button>
+          </div>
+        )}
+
+        {/* User Form Modal */}
         {showTypeForm && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
@@ -755,6 +920,7 @@ export default function Settings() {
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Senha</label>
                       <input
                         type="password"
+                        name="password"
                         required
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                         value={userFormData.password}

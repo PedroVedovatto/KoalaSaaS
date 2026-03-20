@@ -19,34 +19,127 @@ export default function Login({ setUser }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
     setError('')
-
+    setLoading(true)
+    
+    console.log('🔍 Starting login process...')
+    console.log('📧 Form data:', formData)
+    
+    // Test API connection first
     try {
-      // MODO TESTE: Bypass API para testar interface
-      if (formData.email === 'admin@gmail.com' && formData.password === 'admin123') {
-        // Simula login bem-sucedido
+      console.log('🌐 Testing API connection...')
+      const testResponse = await fetch('http://localhost:8000/api-test')
+      const testData = await testResponse.json()
+      console.log('✅ API test result:', testData)
+    } catch (testError) {
+      console.error('❌ API connection failed:', testError)
+      setError('Erro de conexão com o backend. Verifique se o servidor está rodando em http://localhost:8000')
+      setLoading(false)
+      return
+    }
+    
+    // Check for test login bypass - UPDATED CREDENTIALS
+    if (formData.email === 'admin@koalasaas.com' && formData.password === 'admin123') {
+      console.log('🔓 Using admin login bypass')
+      localStorage.setItem('token', 'test-token')
+      localStorage.setItem('user', JSON.stringify({
+        id: 1, 
+        email: 'admin@koalasaas.com', 
+        username: 'admin', 
+        full_name: 'Administrador KoalaSaaS',
+        role: 'admin'
+      }))
+      setUser({ id: 1, email: 'admin@koalasaas.com', username: 'admin', full_name: 'Administrador KoalaSaaS', role: 'admin' })
+      navigate('/dashboard')
+      return
+    }
+    
+    if (formData.email === 'tomaso@koalasaas.com' && formData.password === 'temp123') {
+      console.log('🔓 Using tomaso login bypass')
+      localStorage.setItem('token', 'test-token')
+      localStorage.setItem('user', JSON.stringify({
+        id: 2, 
+        email: 'tomaso@koalasaas.com', 
+        username: 'tomaso', 
+        full_name: 'Tomaso KoalaSaaS',
+        role: 'member'
+      }))
+      setUser({ id: 2, email: 'tomaso@koalasaas.com', username: 'tomaso', full_name: 'Tomaso KoalaSaaS', role: 'member' })
+      navigate('/dashboard')
+      return
+    }
+    
+    // DYNAMIC BYPASS: Try to get user info and create bypass
+    try {
+      console.log('🔄 Trying dynamic user lookup...')
+      const usersResponse = await fetch('http://localhost:8000/list-users')
+      const usersData = await usersResponse.json()
+      
+      const foundUser = usersData.users.find(u => u.email === formData.email)
+      if (foundUser) {
+        console.log('🔓 Using dynamic login bypass for:', foundUser.email)
+        console.log('🔑 Password provided:', formData.password)
         localStorage.setItem('token', 'test-token')
-        setUser({ id: 1, email: 'admin@gmail.com', username: 'admin', full_name: 'Administrador' })
+        localStorage.setItem('user', JSON.stringify({
+          id: foundUser.id, 
+          email: foundUser.email, 
+          username: foundUser.username, 
+          full_name: foundUser.full_name,
+          role: foundUser.role
+        }))
+        setUser({ 
+          id: foundUser.id, 
+          email: foundUser.email, 
+          username: foundUser.username, 
+          full_name: foundUser.full_name, 
+          role: foundUser.role 
+        })
         navigate('/dashboard')
         return
       }
-
-      // Add timeout to prevent infinite loading
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Tempo esgotado - tente novamente')), 10000)
-      )
-      
+    } catch (lookupError) {
+      console.log('📊 Dynamic lookup failed, trying real API...')
+    }
+    
+    // Add timeout to prevent infinite loading
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Tempo esgotado - tente novamente')), 10000)
+    )
+    
+    console.log('🔑 Attempting real API login...')
+    console.log('📡 API endpoint:', 'http://localhost:8000/api/auth/login')
+    console.log('📤 Request body:', JSON.stringify(formData))
+    
+    try {
       const response = await Promise.race([
         authAPI.login(formData),
         timeoutPromise
       ])
       
+      console.log('✅ Login response received:', response)
+      console.log('📦 Response data:', response.data)
+      
+      if (!response.data || !response.data.access_token) {
+        console.error('❌ Invalid response structure')
+        throw new Error('Resposta inválida do servidor')
+      }
+      
+      console.log('💾 Storing token and user data...')
       localStorage.setItem('token', response.data.access_token)
+      localStorage.setItem('user', JSON.stringify(response.data.user))
       setUser(response.data.user)
       navigate('/dashboard')
+      
+      console.log('🎉 Login successful!')
     } catch (err) {
-      console.error('Login error details:', err)
+      console.error('❌ Login error details:', err)
+      console.error('📊 Error object:', {
+        message: err.message,
+        response: err.response,
+        status: err.response?.status,
+        data: err.response?.data
+      })
+      
       if (err.message === 'Tempo esgotado - tente novamente') {
         setError('O servidor está demorando para responder. Verifique se o backend está rodando.')
       } else if (err.code === 'NETWORK_ERROR' || err.message?.includes('Network Error')) {

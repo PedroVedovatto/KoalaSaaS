@@ -9,14 +9,32 @@ import Settings from './pages/Settings'
 import Layout from './components/Layout'
 
 function App() {
-  const [user, setUser] = useState({ id: 1, name: 'Admin', email: 'admin@gmail.com' }) // Mock user for testing
-  const [loading, setLoading] = useState(false)
+  const [user, setUser] = useState(null) // Start with null user
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Remove qualquer token existente
-    localStorage.removeItem('token')
-    // Não faz nenhuma chamada de API
+    // Check if user is already logged in
+    const token = localStorage.getItem('token')
+    const userData = localStorage.getItem('user')
+    
+    if (token && userData) {
+      try {
+        const parsedUser = JSON.parse(userData)
+        setUser(parsedUser)
+      } catch (error) {
+        console.error('Error parsing user data:', error)
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
+    }
+    
+    setLoading(false)
   }, [])
+
+  const handleLogout = () => {
+    setUser(null)
+    // The Layout component will handle clearing localStorage
+  }
 
   if (loading) {
     return (
@@ -39,19 +57,19 @@ function App() {
         />
         <Route 
           path="/dashboard" 
-          element={user ? <Layout user={user}><Dashboard /></Layout> : <Navigate to="/login" />} 
+          element={user ? <Layout user={user} onLogout={handleLogout}><Dashboard /></Layout> : <Navigate to="/login" />} 
         />
         <Route 
           path="/contracts" 
-          element={user ? <Layout user={user}><Contracts /></Layout> : <Navigate to="/login" />} 
+          element={user ? <Layout user={user} onLogout={handleLogout}><Contracts /></Layout> : <Navigate to="/login" />} 
         />
         <Route 
           path="/alerts" 
-          element={user ? <Layout user={user}><Alerts /></Layout> : <Navigate to="/login" />} 
+          element={user ? <Layout user={user} onLogout={handleLogout}><Alerts /></Layout> : <Navigate to="/login" />} 
         />
         <Route 
           path="/settings" 
-          element={user ? <Layout user={user}><Settings /></Layout> : <Navigate to="/login" />} 
+          element={user ? <Layout user={user} onLogout={handleLogout}><Settings /></Layout> : <Navigate to="/login" />} 
         />
         <Route path="/" element={<Navigate to="/dashboard" />} />
       </Routes>

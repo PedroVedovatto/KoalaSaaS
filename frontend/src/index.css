@@ -117,3 +117,25 @@ code {
 .dark .custom-select option:hover {
   @apply bg-gray-600;
 }
+
+/* Efeito de brilho para contrato destacado */
+.highlight-contract {
+  background-color: rgba(59, 130, 246, 0.08);
+  animation: highlightBlink 3s ease-in-out 3;
+  transition: background-color 1s ease-in-out;
+}
+
+@keyframes highlightBlink {
+  0%, 100% {
+    background-color: rgba(255, 255, 255, 0);  /* Branco transparente */
+  }
+  25% {
+    background-color: rgba(59, 130, 246, 0.06); /* Azul suave */
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.15); /* Azul mais forte */
+  }
+  75% {
+    background-color: rgba(59, 130, 246, 0.06); /* Azul suave */
+  }
+}

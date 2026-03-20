@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Building2, FileText, AlertTriangle, TrendingUp, Calendar, DollarSign } from 'lucide-react'
+import LoadingScreen from '../components/LoadingScreen'
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
@@ -16,7 +17,7 @@ export default function Dashboard() {
           id: 1,
           name: 'Contrato de Serviço A',
           contract_type: 'Serviço',
-          status: 'ativo',
+          status: 'pendente',
           value: 50000,
           start_date: '2024-01-01',
           end_date: '2024-12-31'
@@ -25,7 +26,7 @@ export default function Dashboard() {
           id: 2,
           name: 'Contrato de Software B',
           contract_type: 'Software',
-          status: 'ativo',
+          status: 'pendente',
           value: 25000,
           start_date: '2024-06-01',
           end_date: '2025-06-01'
@@ -72,15 +73,11 @@ export default function Dashboard() {
       })))
       
       setLoading(false)
-    }, 1000)
+    }, 2000)
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Carregando dashboard...</div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   if (error) {
@@ -106,7 +103,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div>
+      {loading && <LoadingScreen />}
+      <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600">Visão geral dos seus contratos e alertas</p>
@@ -274,6 +273,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

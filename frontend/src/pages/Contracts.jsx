@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Search, FileText, Edit, Trash2, Calendar, DollarSign, AlertTriangle, Eye } from 'lucide-react'
+import LoadingScreen from '../components/LoadingScreen'
 
 export default function Contracts() {
   // Store for opened windows
@@ -29,6 +30,12 @@ export default function Contracts() {
     { id: 2, name: 'pendente', description: 'Aguardando aprovação', color: '#F59E0B' },
     { id: 3, name: 'encerrado', description: 'Contrato finalizado', color: '#6B7280' }
   ])
+  
+  // Função para obter a cor do tipo de contrato
+  const getContractTypeColor = (typeName) => {
+    const type = contractTypes.find(t => t.name === typeName)
+    return type ? type.color : '#6B7280' // Cor padrão cinza se não encontrar
+  }
   const [formData, setFormData] = useState({
     name: '',
     contract_type: '',
@@ -46,21 +53,27 @@ export default function Contracts() {
     try {
       setError(null)
       
-      // Use mock data directly to fix access issues
-      // TODO: Replace with real API when backend is working
-      setTimeout(() => {
+      // Verificar se há dados no localStorage primeiro
+      const storedContracts = localStorage.getItem('contracts')
+      let contracts = []
+      
+      if (storedContracts) {
+        // Usar dados do localStorage
+        contracts = JSON.parse(storedContracts)
+      } else {
+        // Criar dados mockados iniciais e salvar no localStorage
         const mockContracts = [
           {
             id: 1,
             name: 'Contrato de Serviço A',
             contract_type: 'Serviço',
-            description: 'Contrato de prestação de serviços',
-            value: 50000,
+            description: 'Prestação de serviços de consultoria',
+            value: 15000,
             start_date: '2024-01-01',
             end_date: '2024-12-31',
             billing_cycle: 'monthly',
-            status: 'ativo',
-            alert: 'Expira em 30 dias'
+            status: 'pendente',
+            alert: 'Aguardando aprovação'
           },
           {
             id: 2,
@@ -71,24 +84,55 @@ export default function Contracts() {
             start_date: '2024-06-01',
             end_date: '2025-06-01',
             billing_cycle: 'yearly',
-            status: 'ativo',
-            alert: null
+            status: 'pendente',
+            alert: 'Aguardando aprovação'
           },
           {
             id: 3,
-            name: 'Contrato de Consultoria C',
+            name: 'Contrato de Aluguel C',
+            contract_type: 'Aluguel',
+            description: 'Aluguel de equipamentos',
+            value: 8000,
+            start_date: '2024-03-01',
+            end_date: '2025-03-01',
+            billing_cycle: 'monthly',
+            status: 'pendente',
+            alert: 'Aguardando aprovação'
+          },
+          {
+            id: 4,
+            name: 'Contrato de Consultoria D',
             contract_type: 'Consultoria',
             description: 'Serviços de consultoria estratégica',
-            value: 75000,
-            start_date: '2024-03-01',
-            end_date: '2024-09-01',
-            billing_cycle: 'quarterly',
+            value: 35000,
+            start_date: '2024-02-15',
+            end_date: '2024-08-15',
+            billing_cycle: 'onetime',
+            status: 'pendente',
+            alert: 'Aguardando aprovação'
+          },
+          {
+            id: 5,
+            name: 'Contrato de Manutenção E',
+            contract_type: 'Manutenção',
+            description: 'Manutenção preventiva de sistemas',
+            value: 12000,
+            start_date: '2024-01-01',
+            end_date: '2024-12-31',
+            billing_cycle: 'monthly',
             status: 'pendente',
             alert: 'Aguardando aprovação'
           }
         ]
         
-        let filtered = mockContracts
+        // Salvar dados mockados iniciais no localStorage
+        localStorage.setItem('contracts', JSON.stringify(mockContracts))
+        contracts = mockContracts
+      }
+      
+      // Processar filtros e atualizar estado
+      setTimeout(() => {
+        let filtered = contracts
         if (searchTerm) {
           filtered = filtered.filter(c => 
             c.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -103,7 +147,7 @@ export default function Contracts() {
         
         setContracts(filtered)
         setLoading(false)
-      }, 1000)
+      }, 2000)
       
     } catch (error) {
       console.error('Error fetching contracts:', error)
@@ -112,6 +156,57 @@ export default function Contracts() {
       setLoading(false)
     }
   }
+
+  // Garantir loading inicial de 3 segundos
+  useEffect(() => {
+    setLoading(true)
+    const timer = setTimeout(() => {
+      setLoading(false)
+    }, 3000)
+    
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Verificar se há contrato para destacar (vindo do alerta)
+  useEffect(() => {
+    const highlightContractId = localStorage.getItem('highlightContract')
+    const highlightContractName = localStorage.getItem('highlightContractName')
+    
+    if (highlightContractId && highlightContractName && contracts.length > 0) {
+      // Encontrar o contrato na lista
+      const contract = contracts.find(c => c.id === parseInt(highlightContractId))
+      
+      if (contract) {
+        // Remover destaque anterior
+        document.querySelectorAll('.highlight-contract').forEach(el => {
+          el.classList.remove('highlight-contract')
+        })
+        
+        // Adicionar destaque ao contrato encontrado
+        setTimeout(() => {
+          const contractRow = document.querySelector(`[data-contract-id="${contract.id}"]`)
+          if (contractRow) {
+            contractRow.classList.add('highlight-contract')
+            // Scroll suave e natural para o centro da tela
+            contractRow.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center',
+              inline: 'nearest'
+            })
+            
+            // Remover destaque após 3 segundos
+            setTimeout(() => {
+              contractRow.classList.remove('highlight-contract')
+            }, 3000)
+          }
+        }, 300)
+      }
+      
+      // Limpar localStorage
+      localStorage.removeItem('highlightContract')
+      localStorage.removeItem('highlightContractName')
+    }
+  }, [contracts])
 
   useEffect(() => {
     fetchContracts()
@@ -184,11 +279,19 @@ export default function Contracts() {
       try {
         setError(null)
         
-        // Temporarily use mock operations to fix infinite loading
-        // TODO: Replace with real API when backend is working
-        setContracts(prev => prev.filter(c => !selectedContracts.includes(c.id)))
+        // Obter contratos atuais do localStorage
+        const storedContracts = localStorage.getItem('contracts')
+        let currentContracts = storedContracts ? JSON.parse(storedContracts) : []
+        
+        // Remover os contratos selecionados
+        const updatedContracts = currentContracts.filter(c => !selectedContracts.includes(c.id))
+        
+        // Salvar no localStorage
+        localStorage.setItem('contracts', JSON.stringify(updatedContracts))
+        setContracts(updatedContracts)
         setSelectedContracts([])
-        console.log('Contratos deletados (mock)')
+        
+        console.log('Contratos deletados:', selectedContracts.length)
         
       } catch (error) {
         console.error('Error deleting contracts:', error)
@@ -671,22 +774,30 @@ export default function Contracts() {
     try {
       setError(null)
       
-      // Temporarily use mock operations to fix infinite loading
-      // TODO: Replace with real API when backend is working
+      // Obter contratos atuais do localStorage
+      const storedContracts = localStorage.getItem('contracts')
+      let currentContracts = storedContracts ? JSON.parse(storedContracts) : []
+      
       const newContract = {
         id: editingContract ? editingContract.id : Date.now(),
         ...formData,
         value: parseFloat(formData.value) || 0,
-        alert: Math.random() > 0.7 ? 'Expira em ' + Math.floor(Math.random() * 30 + 1) + ' dias' : null
+        status: editingContract ? formData.status : 'pendente', // Novos contratos sempre pendentes
+        alert: editingContract ? formData.alert : 'Aguardando aprovação' // Novos contratos com alerta padrão
       }
       
+      let updatedContracts
       if (editingContract) {
-        setContracts(prev => prev.map(c => c.id === editingContract.id ? newContract : c))
-        console.log('Contrato atualizado (mock):', newContract)
+        updatedContracts = currentContracts.map(c => c.id === editingContract.id ? newContract : c)
+        console.log('Contrato atualizado:', newContract)
       } else {
-        setContracts(prev => [...prev, newContract])
-        console.log('Contrato criado (mock):', newContract)
+        updatedContracts = [...currentContracts, newContract]
+        console.log('Contrato criado:', newContract)
       }
+      
+      // Salvar no localStorage
+      localStorage.setItem('contracts', JSON.stringify(updatedContracts))
+      setContracts(updatedContracts)
       
       resetForm()
       setShowForm(false)
@@ -714,19 +825,91 @@ export default function Contracts() {
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Tem certeza que deseja excluir este contrato?')) {
-      try {
-        setError(null)
-        
-        // Temporarily use mock operations to fix infinite loading
-        // TODO: Replace with real API when backend is working
-        setContracts(prev => prev.filter(c => c.id !== id))
-        console.log('Contrato deletado (mock):', id)
-        
-      } catch (error) {
-        console.error('Error deleting contract:', error)
-        setError('Falha ao excluir contrato')
-      }
+    if (!window.confirm('Tem certeza que deseja excluir este contrato?')) {
+      return
+    }
+
+    try {
+      setError(null)
+      
+      // Obter contratos atuais do localStorage
+      const storedContracts = localStorage.getItem('contracts')
+      let currentContracts = storedContracts ? JSON.parse(storedContracts) : []
+      
+      // Remover o contrato
+      const updatedContracts = currentContracts.filter(c => c.id !== id)
+      
+      // Salvar no localStorage
+      localStorage.setItem('contracts', JSON.stringify(updatedContracts))
+      setContracts(updatedContracts)
+      
+      console.log('Contrato deletado:', id)
+      
+    } catch (error) {
+      console.error('Error deleting contract:', error)
+      setError('Falha ao excluir contrato')
+    }
+  }
+
+  const handleApprove = async (contract) => {
+    if (!window.confirm(`Tem certeza que deseja aprovar o contrato "${contract.name}"?`)) {
+      return
+    }
+
+    try {
+      setError(null)
+      
+      // Obter contratos atuais do localStorage
+      const storedContracts = localStorage.getItem('contracts')
+      let currentContracts = storedContracts ? JSON.parse(storedContracts) : []
+      
+      // Atualizar status do contrato
+      const updatedContracts = currentContracts.map(c => 
+        c.id === contract.id 
+          ? { ...c, status: 'ativo', alert: null }
+          : c
+      )
+      
+      // Salvar no localStorage
+      localStorage.setItem('contracts', JSON.stringify(updatedContracts))
+      setContracts(updatedContracts)
+      
+      console.log('Contrato aprovado:', contract)
+      
+    } catch (error) {
+      console.error('Error approving contract:', error)
+      setError('Falha ao aprovar contrato')
+    }
+  }
+
+  const handleFinish = async (contract) => {
+    if (!window.confirm(`Tem certeza que deseja finalizar o contrato "${contract.name}"?`)) {
+      return
+    }
+
+    try {
+      setError(null)
+      
+      // Obter contratos atuais do localStorage
+      const storedContracts = localStorage.getItem('contracts')
+      let currentContracts = storedContracts ? JSON.parse(storedContracts) : []
+      
+      // Atualizar status do contrato
+      const updatedContracts = currentContracts.map(c => 
+        c.id === contract.id 
+          ? { ...c, status: 'encerrado', alert: 'Contrato finalizado' }
+          : c
+      )
+      
+      // Salvar no localStorage
+      localStorage.setItem('contracts', JSON.stringify(updatedContracts))
+      setContracts(updatedContracts)
+      
+      console.log('Contrato finalizado:', contract)
+      
+    } catch (error) {
+      console.error('Error finishing contract:', error)
+      setError('Falha ao finalizar contrato')
     }
   }
 
@@ -748,11 +931,7 @@ export default function Contracts() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Carregando contratos...</div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   if (error) {
@@ -776,7 +955,9 @@ export default function Contracts() {
   }
 
   return (
-    <div className="space-y-6 relative">
+    <div>
+      {loading && <LoadingScreen />}
+      <div className="space-y-6 relative">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Contratos</h1>
@@ -846,7 +1027,8 @@ export default function Contracts() {
 
       {/* Contracts Table */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        {contracts.length === 0 ? (
+        <div className="overflow-x-auto">
+          {contracts.length === 0 ? (
           <div className="p-10 text-center">
             <div className="mx-auto w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
               <FileText className="w-6 h-6 text-blue-600" />
@@ -881,14 +1063,14 @@ export default function Contracts() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
                 </th>
               </tr>
             </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {contracts.map((contract) => (
-                  <tr key={contract.id}>
+                  <tr key={contract.id} data-contract-id={contract.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
                         type="checkbox"
@@ -911,8 +1093,16 @@ export default function Contracts() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {contract.contract_type}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span 
+                        className="px-2 py-1 rounded-full text-xs font-medium"
+                        style={{ 
+                          backgroundColor: getContractTypeColor(contract.contract_type) + '20',
+                          color: getContractTypeColor(contract.contract_type)
+                        }}
+                      >
+                        {contract.contract_type}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {contract.value ? `R$ ${contract.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
@@ -947,6 +1137,39 @@ export default function Contracts() {
                       >
                         <Edit className="w-4 h-4" />
                       </button>
+                      {contract.status === 'pendente' && (
+                        <>
+                          <button
+                            onClick={() => handleApprove(contract)}
+                            className="text-green-600 hover:text-green-900 mr-3"
+                            title="Aprovar Contrato"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleFinish(contract)}
+                            className="text-purple-600 hover:text-purple-900 mr-3"
+                            title="Finalizar Contrato"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                        </>
+                      )}
+                      {contract.status === 'ativo' && (
+                        <button
+                          onClick={() => handleFinish(contract)}
+                          className="text-purple-600 hover:text-purple-900 mr-3"
+                          title="Encerrar Contrato"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(contract.id)}
                         className="text-red-600 hover:text-red-900"
@@ -959,7 +1182,8 @@ export default function Contracts() {
                 ))}
               </tbody>
             </table>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Form Modal */}
@@ -1141,7 +1365,17 @@ export default function Contracts() {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Tipo</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedContract.contract_type}</p>
+                  <p className="mt-1">
+                    <span 
+                      className="px-2 py-1 rounded-full text-xs font-medium"
+                      style={{ 
+                        backgroundColor: getContractTypeColor(selectedContract.contract_type) + '20',
+                        color: getContractTypeColor(selectedContract.contract_type)
+                      }}
+                    >
+                      {selectedContract.contract_type}
+                    </span>
+                  </p>
                 </div>
                 
                 <div>
@@ -1314,63 +1548,111 @@ export default function Contracts() {
 
       {/* Multi-selection Actions - Fixed Bottom within page */}
       {selectedContracts.length > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg" style={{zIndex: 30}}>
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center">
-              <span className="text-sm font-medium text-blue-900">
-                {selectedContracts.length} contrato(s) selecionado(s)
-              </span>
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={handleMultiView}
-                disabled={!canView}
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  canView
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <Eye className="w-4 h-4 inline mr-1" />
-                Visualizar ({selectedContracts.length})
-              </button>
-              <button
-                onClick={() => {
-                  const contract = contracts.find(c => c.id === selectedContracts[0])
-                  if (contract) handleEdit(contract)
-                }}
-                disabled={!canEdit}
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  canEdit
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <Edit className="w-4 h-4 inline mr-1" />
-                Editar
-              </button>
-              <button
-                onClick={handleMultiDelete}
-                disabled={!canDelete}
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  canDelete
-                    ? 'bg-red-600 text-white hover:bg-red-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <Trash2 className="w-4 h-4 inline mr-1" />
-                Excluir ({selectedContracts.length})
-              </button>
-              <button
-                onClick={() => setSelectedContracts([])}
-                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Limpar Seleção
-              </button>
+        <div className="fixed bottom-4 left-68 right-6 bg-white border border-gray-200 rounded-xl shadow-xl" style={{zIndex: 50, width: 'calc(100% - 302px)'}}>
+          <div className="px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center flex-shrink-0">
+                <span className="text-sm font-medium text-blue-900">
+                  {selectedContracts.length} contrato(s) selecionado(s)
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2 flex-shrink-0">
+                <button
+                  onClick={handleMultiView}
+                  disabled={!canView}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    canView
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  <Eye className="w-4 h-4 inline mr-1" />
+                  <span className="hidden sm:inline">Visualizar ({selectedContracts.length})</span>
+                  <span className="sm:hidden">Ver ({selectedContracts.length})</span>
+                </button>
+                {selectedContracts.length === 1 && contracts.find(c => c.id === selectedContracts[0])?.status === 'pendente' && (
+                  <>
+                    <button
+                      onClick={() => handleApprove(contracts.find(c => c.id === selectedContracts[0]))}
+                      className="px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                    >
+                      <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="hidden sm:inline">Aprovar</span>
+                      <span className="sm:hidden">Aprovar</span>
+                    </button>
+                    <button
+                      onClick={() => handleFinish(contracts.find(c => c.id === selectedContracts[0]))}
+                      className="px-3 py-2 text-sm font-medium bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                    >
+                      <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="hidden sm:inline">Finalizar</span>
+                      <span className="sm:hidden">Finalizar</span>
+                    </button>
+                  </>
+                )}
+                {selectedContracts.length === 1 && contracts.find(c => c.id === selectedContracts[0])?.status === 'ativo' && (
+                  <button
+                    onClick={() => handleFinish(contracts.find(c => c.id === selectedContracts[0]))}
+                    className="px-3 py-2 text-sm font-medium bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                      <span className="hidden sm:inline">Encerrar</span>
+                      <span className="sm:hidden">Encerrar</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    const contract = contracts.find(c => c.id === selectedContracts[0])
+                    if (contract) handleEdit(contract)
+                  }}
+                  disabled={!canEdit}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    canEdit
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  <Edit className="w-4 h-4 inline mr-1" />
+                  <span className="hidden sm:inline">Editar</span>
+                  <span className="sm:hidden">Editar</span>
+                </button>
+                <button
+                  onClick={handleMultiDelete}
+                  disabled={!canDelete}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    canDelete
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  <Trash2 className="w-4 h-4 inline mr-1" />
+                  <span className="hidden sm:inline">Excluir ({selectedContracts.length})</span>
+                  <span className="sm:hidden">Exc ({selectedContracts.length})</span>
+                </button>
+                <button
+                  onClick={() => setSelectedContracts([])}
+                  className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  <span className="hidden sm:inline">Limpar Seleção</span>
+                  <span className="sm:hidden">Limpar</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Add padding bottom to account for fixed action bar */}
+      {selectedContracts.length > 0 && (
+        <div className="h-20 sm:h-16"></div>
+      )}
+      </div>
     </div>
   )
 }

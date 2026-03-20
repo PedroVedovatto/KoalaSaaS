@@ -2,7 +2,7 @@ import { Outlet, Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { Building2, FileText, LogOut, Menu, X, Bell, Settings } from 'lucide-react'
 
-export default function Layout({ user, children }) {
+export default function Layout({ user, onLogout, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [unreadAlerts, setUnreadAlerts] = useState(0)
   const navigate = useNavigate()
@@ -50,7 +50,23 @@ export default function Layout({ user, children }) {
   }, [])
 
   const handleLogout = () => {
+    // Limpar todos os dados do usuário
     localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    
+    // Limpar outros dados relacionados ao usuário se necessário
+    localStorage.removeItem('contractTypes')
+    localStorage.removeItem('contractStatuses')
+    localStorage.removeItem('contracts')
+    
+    console.log('User logged out, data cleared')
+    
+    // Chamar função de logout do App
+    if (onLogout) {
+      onLogout()
+    }
+    
+    // Redirecionar para login
     navigate('/login')
   }
 
@@ -109,7 +125,7 @@ export default function Layout({ user, children }) {
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col" style={{zIndex: 20}}>
         <div className="flex flex-col flex-1 bg-white border-r">
           <div className="flex items-center p-4 border-b">
             <h1 className="text-xl font-bold text-gray-900">KoalaSaaS</h1>
@@ -156,7 +172,7 @@ export default function Layout({ user, children }) {
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="lg:pl-64 relative" style={{zIndex: 5}}>
         <div className="lg:hidden">
           <div className="flex items-center p-4 bg-white border-b">
             <button onClick={() => setSidebarOpen(true)} className="text-gray-500 hover:text-gray-700">

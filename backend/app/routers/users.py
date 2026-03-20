@@ -1,18 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import Annotated, List
+from typing import List
 
 from ..database import get_db
 from ..models import User
 from ..schemas.users import UserCreate, UserUpdate, UserResponse, UserPasswordChange
 from ..services.users import UsersService
-from ..routers.auth import get_current_user
+from ..services.auth import AuthService
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("/")
 def get_users(
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: User = Depends(AuthService.get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all users for current user's company (admin only)"""
@@ -25,7 +25,7 @@ def get_users(
 
 @router.get("/me", response_model=UserResponse)
 def get_current_user_profile(
-    current_user: Annotated[User, Depends(get_current_user)]
+    current_user: Annotated[User, Depends(AuthService.get_current_user)]
 ):
     """Get current user profile"""
     return current_user
@@ -33,7 +33,7 @@ def get_current_user_profile(
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(AuthService.get_current_user)],
     db: Session = Depends(get_db)
 ):
     """Get a specific user by ID (admin only)"""
@@ -47,7 +47,7 @@ def get_user(
 @router.post("/", response_model=UserResponse)
 def create_user(
     user_data: UserCreate,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(AuthService.get_current_user)],
     db: Session = Depends(get_db)
 ):
     """Create a new user (admin only)"""
@@ -62,7 +62,7 @@ def create_user(
 def update_user(
     user_id: int,
     user_data: UserUpdate,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(AuthService.get_current_user)],
     db: Session = Depends(get_db)
 ):
     """Update an existing user (admin only or self)"""
@@ -76,7 +76,7 @@ def update_user(
 @router.delete("/{user_id}")
 def delete_user(
     user_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(AuthService.get_current_user)],
     db: Session = Depends(get_db)
 ):
     """Delete a user (admin only)"""
@@ -96,7 +96,7 @@ def delete_user(
 @router.patch("/{user_id}/toggle-status")
 def toggle_user_status(
     user_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(AuthService.get_current_user)],
     db: Session = Depends(get_db)
 ):
     """Toggle user active status (admin only)"""
@@ -116,7 +116,7 @@ def toggle_user_status(
 def change_password(
     user_id: int,
     password_data: UserPasswordChange,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(AuthService.get_current_user)],
     db: Session = Depends(get_db)
 ):
     """Change user password (admin only or self)"""
@@ -126,3 +126,21 @@ def change_password(
             detail="You can only change your own password"
         )
     return UsersService.change_password(user_id, password_data, current_user, db)
+
+@router.post("/promote-all-to-admin")
+def promote_all_users_to_admin(
+    current_user: Annotated[User, Depends(AuthService.get_current_user)],
+    db: Session = Depends(get_db)
+):
+    """Promote all existing users to admin role (super admin only)"""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can promote users"
+        )
+    
+    promoted_count = UsersService.promote_all_users_to_admin(db)
+    return {
+        "message": f"Successfully promoted {promoted_count} users to admin role",
+        "promoted_count": promoted_count
+    }

@@ -39,6 +39,8 @@ def get_contract(
 
 @router.post("/", response_model=ContractResponse)
 async def create_contract(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
     name: str = Form(...),
     contract_type: str = Form(...),
     description: str = Form(""),
@@ -48,9 +50,7 @@ async def create_contract(
     end_date: str = Form(...),
     auto_renew: bool = Form(False),
     cancel_days_before: int = Form(30),
-    file: Optional[UploadFile] = File(None),
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: Session = Depends(get_db)
+    file: Optional[UploadFile] = File(None)
 ):
     """Create a new contract with optional file upload"""
     from datetime import datetime

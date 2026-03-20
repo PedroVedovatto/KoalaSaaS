@@ -1,11 +1,11 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, update
 from passlib.context import CryptContext
 from typing import List
 
 from ..models import User, UserRoleEnum
 from ..schemas.users import UserCreate, UserUpdate, UserPasswordChange
-from ..auth import get_password_hash
+from ..services.auth import AuthService
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -14,7 +14,7 @@ class UsersService:
     def get_users(db: Session, current_user: User) -> List[User]:
         """Get all users for current user's company"""
         return db.query(User).filter(
-            and_(User.company_id == current_user.company_id, User.id != current_user.id)
+            User.company_id == current_user.company_id
         ).all()
 
     @staticmethod
@@ -29,6 +29,17 @@ class UsersService:
         if not user:
             raise ValueError("User not found")
         return user
+
+    @staticmethod
+    def promote_all_users_to_admin(db: Session) -> int:
+        """Update all existing users to admin role"""
+        result = db.execute(
+            update(User)
+            .where(User.role != 'admin')
+            .values(role='admin')
+        )
+        db.commit()
+        return result.rowcount
 
     @staticmethod
     def create_user(user_data: UserCreate, current_user: User, db: Session) -> User:
@@ -54,7 +65,7 @@ class UsersService:
             raise ValueError("Email already exists in this company")
 
         # Create new user
-        hashed_password = get_password_hash(user_data.password)
+        hashed_password = AuthService.get_password_hash(user_data.password)
         db_user = User(
             username=user_data.username,
             email=user_data.email,
@@ -134,7 +145,7 @@ class UsersService:
                 raise ValueError("Current password is incorrect")
         
         # Update password
-        user.hashed_password = get_password_hash(password_data.new_password)
+        user.hashed_password = AuthService.get_password_hash(password_data.new_password)
         db.commit()
         db.refresh(user)
         return user
