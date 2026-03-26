@@ -33,6 +33,62 @@ code {
   @apply bg-yellow-900 border-l-4 border-yellow-500 text-yellow-200;
 }
 
+/* Action column styles */
+.action-column {
+  width: 60px;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* Status column styles */
+.status-column {
+  width: 100px;
+  min-width: 100px;
+  text-align: center;
+}
+
+/* Type column styles */
+.type-column {
+  width: 110px;
+  min-width: 110px;
+  text-align: center;
+}
+
+/* Filter dropdown styles */
+.filter-dropdown {
+  width: 50%;
+  text-align: left;
+}
+
+.filter-dropdown .absolute {
+  width: 200px;
+  left: 0.75rem !important;
+  transform: none !important;
+}
+
+/* Action dropdown positioning fix */
+.dropdown-container {
+  position: relative;
+}
+
+.dropdown-container .absolute {
+  z-index: 50 !important;
+  position: absolute !important;
+  right: 0 !important;
+  top: 100% !important;
+  margin-top: 0.25rem !important;
+}
+
+/* Ensure table container allows dropdown overflow */
+.bg-white.shadow.rounded-lg {
+  overflow: visible !important;
+}
+
+/* Ensure the main content area allows dropdown overflow */
+.space-y-6 {
+  overflow: visible !important;
+}
+
 .dark .alert-error {
   @apply bg-red-900 border-l-4 border-red-500 text-red-200;
 }

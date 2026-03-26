@@ -5,27 +5,32 @@ import { Building2, FileText, LogOut, Menu, X, Bell, Settings } from 'lucide-rea
 export default function Layout({ user, onLogout, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [unreadAlerts, setUnreadAlerts] = useState(0)
+  const [hasVisitedAlerts, setHasVisitedAlerts] = useState(() => {
+    return localStorage.getItem('hasVisitedAlerts') === 'true'
+  })
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Load unread alerts from localStorage
-    const loadUnreadAlerts = () => {
+    // Fetch real unread alerts from backend
+    const fetchUnreadAlerts = async () => {
       try {
-        const savedAlerts = localStorage.getItem('alerts')
-        if (savedAlerts) {
-          const alerts = JSON.parse(savedAlerts)
-          const unreadCount = alerts.filter(alert => !alert.is_read).length
+        const response = await fetch('http://localhost:8000/public-alerts')
+        const data = await response.json()
+        
+        if (data.alerts && data.alerts.length > 0) {
+          const unreadCount = data.alerts.filter(alert => !alert.is_read).length
           setUnreadAlerts(unreadCount)
+          console.log('🔔 Unread alerts loaded:', unreadCount)
         } else {
-          setUnreadAlerts(2) // Default mock value
+          setUnreadAlerts(0)
         }
       } catch (error) {
-        console.error('Error loading unread alerts:', error)
+        console.error('Error fetching unread alerts:', error)
         setUnreadAlerts(0)
       }
     }
     
-    loadUnreadAlerts()
+    fetchUnreadAlerts()
     
     // Listen for custom alerts update events
     const handleAlertsUpdate = (e) => {
@@ -37,7 +42,7 @@ export default function Layout({ user, onLogout, children }) {
     // Listen for storage changes to update counter in real-time
     const handleStorageChange = (e) => {
       if (e.key === 'alerts') {
-        loadUnreadAlerts()
+        fetchUnreadAlerts()
       }
     }
     
@@ -49,12 +54,38 @@ export default function Layout({ user, onLogout, children }) {
     }
   }, [])
 
+  useEffect(() => {
+    const checkIfOnAlertsPage = () => {
+      if (window.location.pathname === '/alerts' && !hasVisitedAlerts) {
+        setHasVisitedAlerts(true)
+        localStorage.setItem('hasVisitedAlerts', 'true')
+        console.log(' User visited alerts page, pulse effect disabled')
+      }
+    }
+    
+    checkIfOnAlertsPage()
+    
+    // Listen for route changes
+    const handleRouteChange = () => {
+      checkIfOnAlertsPage()
+    }
+    
+    window.addEventListener('popstate', handleRouteChange)
+    
+    // Check periodically
+    const interval = setInterval(checkIfOnAlertsPage, 1000)
+    
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange)
+      clearInterval(interval)
+    }
+  }, [hasVisitedAlerts])
+
   const handleLogout = () => {
     // Limpar todos os dados do usuário
     localStorage.removeItem('token')
     localStorage.removeItem('user')
-    
-    // Limpar outros dados relacionados ao usuário se necessário
+    localStorage.removeItem('hasVisitedAlerts')
     localStorage.removeItem('contractTypes')
     localStorage.removeItem('contractStatuses')
     localStorage.removeItem('contracts')
@@ -96,8 +127,10 @@ export default function Layout({ user, onLogout, children }) {
               <Bell className="w-5 h-5 mr-3" />
               Alertas
               {unreadAlerts > 0 && (
-                <span className="absolute top-2 right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {unreadAlerts > 9 ? '9+' : unreadAlerts}
+                <span className={`absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-lg ${
+                  hasVisitedAlerts ? '' : 'animate-pulse'
+                }`}>
+                  {unreadAlerts > 99 ? '99+' : unreadAlerts}
                 </span>
               )}
             </Link>
@@ -143,8 +176,10 @@ export default function Layout({ user, onLogout, children }) {
               <Bell className="w-5 h-5 mr-3" />
               Alertas
               {unreadAlerts > 0 && (
-                <span className="absolute top-2 right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {unreadAlerts > 9 ? '9+' : unreadAlerts}
+                <span className={`absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-lg ${
+                  hasVisitedAlerts ? '' : 'animate-pulse'
+                }`}>
+                  {unreadAlerts > 99 ? '99+' : unreadAlerts}
                 </span>
               )}
             </Link>

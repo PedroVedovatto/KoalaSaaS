@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, FileText, Edit, Trash2, Calendar, DollarSign, AlertTriangle, Eye } from 'lucide-react'
+import { Plus, Search, FileText, Edit, Trash2, Calendar, DollarSign, AlertTriangle, Eye, AlertCircle, MoreVertical } from 'lucide-react'
 import LoadingScreen from '../components/LoadingScreen'
 
 export default function Contracts() {
@@ -17,14 +17,52 @@ export default function Contracts() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType] = useState('')
   const [error, setError] = useState(null)
+  const [activeDropdown, setActiveDropdown] = useState(null)
+  const [filterStatusDropdown, setFilterStatusDropdown] = useState(false)
+  const [filterTypeDropdown, setFilterTypeDropdown] = useState(false)
   
-  // Contract types and statuses from Settings
-  const [contractTypes, setContractTypes] = useState([
-    { id: 1, name: 'Serviço', description: 'Contratos de prestação de serviços', color: '#3B82F6' },
-    { id: 2, name: 'Software', description: 'Licenciamento de software', color: '#10B981' },
-    { id: 3, name: 'Consultoria', description: 'Contratos de consultoria', color: '#F59E0B' }
-  ])
+  useEffect(() => {
+    // Buscar tipos de contrato do backend também
+    const fetchContractTypes = async () => {
+      try {
+        console.log('🔄 Fetching contract types from backend...')
+        const response = await fetch('http://localhost:8000/public-contract-types')
+        const data = await response.json()
+        
+        if (data.contract_types && data.contract_types.length > 0) {
+          console.log('✅ Real contract types loaded:', data.contract_types.length)
+          setContractTypes(data.contract_types)
+        } else {
+          console.log('⚠️ No contract types found in backend, using mock data')
+        }
+      } catch (error) {
+        console.error('❌ Error fetching contract types:', error)
+        console.log('📊 Using mock contract types as fallback')
+      }
+    }
+    
+    fetchContractTypes()
+  }, [])
   
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (activeDropdown && !event.target.closest('.dropdown-container')) {
+        setActiveDropdown(null)
+      }
+      if (filterStatusDropdown && !event.target.closest('.filter-status-dropdown')) {
+        setFilterStatusDropdown(false)
+      }
+      if (filterTypeDropdown && !event.target.closest('.filter-type-dropdown')) {
+        setFilterTypeDropdown(false)
+      }
+    }
+    
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [activeDropdown, filterStatusDropdown, filterTypeDropdown])
+  
+  const [contractTypes, setContractTypes] = useState([])
   const [contractStatuses, setContractStatuses] = useState([
     { id: 1, name: 'ativo', description: 'Contrato ativo e em vigor', color: '#10B981' },
     { id: 2, name: 'pendente', description: 'Aguardando aprovação', color: '#F59E0B' },
@@ -58,76 +96,48 @@ export default function Contracts() {
       let contracts = []
       
       if (storedContracts) {
-        // Usar dados do localStorage
+        // Usar dados do localStorage temporariamente
         contracts = JSON.parse(storedContracts)
-      } else {
-        // Criar dados mockados iniciais e salvar no localStorage
-        const mockContracts = [
-          {
-            id: 1,
-            name: 'Contrato de Serviço A',
-            contract_type: 'Serviço',
-            description: 'Prestação de serviços de consultoria',
-            value: 15000,
-            start_date: '2024-01-01',
-            end_date: '2024-12-31',
-            billing_cycle: 'monthly',
-            status: 'pendente',
-            alert: 'Aguardando aprovação'
-          },
-          {
-            id: 2,
-            name: 'Contrato de Software B',
-            contract_type: 'Software',
-            description: 'Licenciamento de software',
-            value: 25000,
-            start_date: '2024-06-01',
-            end_date: '2025-06-01',
-            billing_cycle: 'yearly',
-            status: 'pendente',
-            alert: 'Aguardando aprovação'
-          },
-          {
-            id: 3,
-            name: 'Contrato de Aluguel C',
-            contract_type: 'Aluguel',
-            description: 'Aluguel de equipamentos',
-            value: 8000,
-            start_date: '2024-03-01',
-            end_date: '2025-03-01',
-            billing_cycle: 'monthly',
-            status: 'pendente',
-            alert: 'Aguardando aprovação'
-          },
-          {
-            id: 4,
-            name: 'Contrato de Consultoria D',
-            contract_type: 'Consultoria',
-            description: 'Serviços de consultoria estratégica',
-            value: 35000,
-            start_date: '2024-02-15',
-            end_date: '2024-08-15',
-            billing_cycle: 'onetime',
-            status: 'pendente',
-            alert: 'Aguardando aprovação'
-          },
-          {
-            id: 5,
-            name: 'Contrato de Manutenção E',
-            contract_type: 'Manutenção',
-            description: 'Manutenção preventiva de sistemas',
-            value: 12000,
-            start_date: '2024-01-01',
-            end_date: '2024-12-31',
-            billing_cycle: 'monthly',
-            status: 'pendente',
-            alert: 'Aguardando aprovação'
-          }
-        ]
+      }
+      
+      // Buscar dados reais do backend
+      try {
+        console.log('🔄 Fetching real contracts from backend...')
+        const response = await fetch('http://localhost:8000/public-contracts')
+        const data = await response.json()
         
-        // Salvar dados mockados iniciais no localStorage
-        localStorage.setItem('contracts', JSON.stringify(mockContracts))
-        contracts = mockContracts
+        if (data.contracts && data.contracts.length > 0) {
+          console.log('✅ Real contracts loaded:', data.contracts.length)
+          
+          // Add alert information based on days until expiration
+          const today = new Date()
+          const contractsWithAlerts = data.contracts.map(contract => {
+            const endDate = new Date(contract.end_date)
+            const daysUntil = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24))
+            
+            let alert = null
+            if (daysUntil <= 0) {
+              alert = 'Expirou'
+            } else if (daysUntil <= 7) {
+              alert = `Vence em ${daysUntil} dias`
+            } else if (daysUntil <= 15) {
+              alert = `Vence em ${daysUntil} dias`
+            } else if (daysUntil <= 30) {
+              alert = `Vence em ${daysUntil} dias`
+            }
+            
+            return { ...contract, alert }
+          })
+          
+          contracts = contractsWithAlerts
+          // Salvar no localStorage
+          localStorage.setItem('contracts', JSON.stringify(contracts))
+        } else {
+          console.log('⚠️ No contracts found in backend, using localStorage data')
+        }
+      } catch (error) {
+        console.error('❌ Error fetching real contracts:', error)
+        console.log('📊 Using localStorage data as fallback')
       }
       
       // Processar filtros e atualizar estado
@@ -257,6 +267,34 @@ export default function Contracts() {
         return [...prev, contractId]
       }
     })
+  }
+
+  const toggleDropdown = (contractId) => {
+    setActiveDropdown(activeDropdown === contractId ? null : contractId)
+  }
+
+  const handleClickOutside = () => {
+    setActiveDropdown(null)
+  }
+
+  const toggleFilterStatusDropdown = () => {
+    setFilterStatusDropdown(!filterStatusDropdown)
+    setFilterTypeDropdown(false)
+  }
+
+  const toggleFilterTypeDropdown = () => {
+    setFilterTypeDropdown(!filterTypeDropdown)
+    setFilterStatusDropdown(false)
+  }
+
+  const handleStatusSelect = (status) => {
+    setFilterStatus(status)
+    setFilterStatusDropdown(false)
+  }
+
+  const handleTypeSelect = (type) => {
+    setFilterType(type)
+    setFilterTypeDropdown(false)
   }
 
   const handleSelectAll = () => {
@@ -965,7 +1003,7 @@ export default function Contracts() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center px-4 py-2 bg-blue-950/80 text-white rounded-lg hover:bg-blue-950/90"
         >
           <Plus className="w-5 h-5 mr-2" />
           Novo Contrato
@@ -982,7 +1020,7 @@ export default function Contracts() {
               <input
                 type="text"
                 placeholder="Buscar por título ou descrição..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -997,31 +1035,73 @@ export default function Contracts() {
         </div>
 
         {/* Quick Filters */}
-        <div className="flex flex-wrap gap-2">
-          <select
-            className="custom-select"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="">Todos os status</option>
-            {contractStatuses.map(status => (
-              <option key={status.id} value={status.name}>
-                {status.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="custom-select"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-          >
-            <option value="">Todos os tipos</option>
-            {contractTypes.map(type => (
-              <option key={type.id} value={type.name}>
-                {type.name}
-              </option>
-            ))}
-          </select>
+        <div className="flex gap-2">
+          <div className="relative filter-status-dropdown filter-dropdown">
+            <button
+              onClick={toggleFilterStatusDropdown}
+              className="flex items-center justify-start px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+            >
+              {filterStatus || 'Todos os status'}
+              <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {filterStatusDropdown && (
+              <div className="absolute z-10 mt-1 bg-white rounded-md shadow-lg border border-gray-200">
+                <div className="py-1">
+                  <button
+                    onClick={() => handleStatusSelect('')}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    Todos os status
+                  </button>
+                  {contractStatuses.map(status => (
+                    <button
+                      key={status.id}
+                      onClick={() => handleStatusSelect(status.name)}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      {status.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="relative filter-type-dropdown filter-dropdown">
+            <button
+              onClick={toggleFilterTypeDropdown}
+              className="flex items-center justify-start px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+            >
+              {filterType || 'Todos os tipos'}
+              <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {filterTypeDropdown && (
+              <div className="absolute z-10 mt-1 bg-white rounded-md shadow-lg border border-gray-200">
+                <div className="py-1">
+                  <button
+                    onClick={() => handleTypeSelect('')}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    Todos os tipos
+                  </button>
+                  {contractTypes.map(type => (
+                    <button
+                      key={type.id}
+                      onClick={() => handleTypeSelect(type.name)}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      {type.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1040,150 +1120,183 @@ export default function Contracts() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <input
                     type="checkbox"
-                    checked={contracts.length > 0 && selectedContracts.length === contracts.length}
-                    onChange={handleSelectAll}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    checked={selectedContracts.length === contracts.length && contracts.length > 0}
+                    onChange={handleSelectAll}
                   />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Contrato
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Tipo
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Valor
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Vigência
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
                 </th>
               </tr>
             </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {contracts.map((contract) => (
-                  <tr key={contract.id} data-contract-id={contract.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={isContractSelected(contract.id)}
-                        onChange={() => handleSelectContract(contract.id)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <FileText className="w-5 h-5 text-gray-400 mr-3" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{contract.name}</div>
-                          {contract.alert && (
-                            <div className="flex items-center mt-1">
-                              <AlertTriangle className="w-4 h-4 text-yellow-500 mr-1" />
-                              <span className="text-xs text-yellow-600">{contract.alert}</span>
-                            </div>
-                          )}
+            <tbody className="bg-white divide-y divide-gray-200">
+              {contracts.map((contract) => (
+                <tr key={contract.id} data-contract-id={contract.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={isContractSelected(contract.id)}
+                      onChange={() => handleSelectContract(contract.id)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <FileText className="w-5 h-5 text-gray-400 mr-3" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{contract.name}</div>
+                        {contract.alert && (
+                          <div className="text-xs text-orange-600 font-medium mt-1 flex items-center">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            {contract.alert}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap type-column">
+                    <span 
+                      className="px-2 py-1 text-xs font-medium rounded-full"
+                      style={{ 
+                        backgroundColor: getContractTypeColor(contract.contract_type) + '20',
+                        color: getContractTypeColor(contract.contract_type)
+                      }}
+                    >
+                      {contract.contract_type}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {contract.value ? `R$ ${contract.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="flex items-center">
+                      <Calendar className="w-4 h-4 text-gray-400 mr-2" />
+                      {new Date(contract.end_date).toLocaleDateString('pt-BR')}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap status-column">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      contract.status === 'ativo' ? 'bg-green-100 text-green-800' :
+                      contract.status === 'encerrado' ? 'bg-gray-100 text-gray-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {contract.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium relative">
+                    <div className="relative dropdown-container">
+                      <button
+                        onClick={() => toggleDropdown(contract.id)}
+                        className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-100"
+                        title="Ações"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                      
+                      {activeDropdown === contract.id && (
+                        <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                          <div className="py-1">
+                            <button
+                              onClick={() => {
+                                handleViewDetails(contract)
+                                toggleDropdown(contract.id)
+                              }}
+                              className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              Ver Detalhes
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleEdit(contract)
+                                toggleDropdown(contract.id)
+                              }}
+                              className="flex items-center px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 w-full text-left"
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Editar
+                            </button>
+                            {contract.status === 'pendente' && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    handleApprove(contract)
+                                    toggleDropdown(contract.id)
+                                  }}
+                                  className="flex items-center px-4 py-2 text-sm text-green-600 hover:bg-gray-100 w-full text-left"
+                                >
+                                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  Aprovar Contrato
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    handleFinish(contract)
+                                    toggleDropdown(contract.id)
+                                  }}
+                                  className="flex items-center px-4 py-2 text-sm text-purple-600 hover:bg-gray-100 w-full text-left"
+                                >
+                                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Finalizar Contrato
+                                </button>
+                              </>
+                            )}
+                            {contract.status === 'ativo' && (
+                              <button
+                                onClick={() => {
+                                  handleFinish(contract)
+                                  toggleDropdown(contract.id)
+                                }}
+                                className="flex items-center px-4 py-2 text-sm text-purple-600 hover:bg-gray-100 w-full text-left"
+                              >
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Encerrar Contrato
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                handleDelete(contract.id)
+                                toggleDropdown(contract.id)
+                              }}
+                              className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100 w-full text-left"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Excluir
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span 
-                        className="px-2 py-1 rounded-full text-xs font-medium"
-                        style={{ 
-                          backgroundColor: getContractTypeColor(contract.contract_type) + '20',
-                          color: getContractTypeColor(contract.contract_type)
-                        }}
-                      >
-                        {contract.contract_type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {contract.value ? `R$ ${contract.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <Calendar className="w-4 h-4 text-gray-400 mr-2" />
-                        {new Date(contract.end_date).toLocaleDateString('pt-BR')}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        contract.status === 'ativo' ? 'bg-green-100 text-green-800' :
-                        contract.status === 'encerrado' ? 'bg-gray-100 text-gray-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {contract.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => handleViewDetails(contract)}
-                        className="text-gray-600 hover:text-gray-900 mr-3"
-                        title="Ver Detalhes"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(contract)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                        title="Editar"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      {contract.status === 'pendente' && (
-                        <>
-                          <button
-                            onClick={() => handleApprove(contract)}
-                            className="text-green-600 hover:text-green-900 mr-3"
-                            title="Aprovar Contrato"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleFinish(contract)}
-                            className="text-purple-600 hover:text-purple-900 mr-3"
-                            title="Finalizar Contrato"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </button>
-                        </>
                       )}
-                      {contract.status === 'ativo' && (
-                        <button
-                          onClick={() => handleFinish(contract)}
-                          className="text-purple-600 hover:text-purple-900 mr-3"
-                          title="Encerrar Contrato"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete(contract.id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Excluir"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Form Modal */}
@@ -1654,5 +1767,6 @@ export default function Contracts() {
       )}
       </div>
     </div>
+  </div>
   )
 }

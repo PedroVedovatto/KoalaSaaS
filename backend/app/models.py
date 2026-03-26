@@ -93,6 +93,7 @@ class Alert(Base):
     message = Column(String(500), nullable=False)
     due_date = Column(DateTime)
     is_read = Column(Boolean, default=False)
+    is_concern = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

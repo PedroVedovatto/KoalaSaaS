@@ -257,32 +257,57 @@ export default function Settings() {
 
   const handleCreateUser = async (e) => {
     e.preventDefault()
-    console.log('🔄 Creating REAL user in database...')
+    console.log('🔄 Creating/Updating user in database...')
     console.log('📝 User data:', userFormData)
+    console.log('🔧 Editing user:', editingUser)
     
     try {
-      // Create user in REAL backend database
-      const response = await fetch('http://localhost:8000/create-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userFormData)
-      })
+      let response
+      let result
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      if (editingUser) {
+        // UPDATE existing user
+        console.log('🔄 Updating existing user...')
+        response = await fetch(`http://localhost:8000/update-user/${editingUser.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(userFormData)
+        })
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+        
+        result = await response.json()
+        console.log('✅ Update response:', result)
+        
+      } else {
+        // CREATE new user
+        console.log('👤 Creating new user...')
+        response = await fetch('http://localhost:8000/create-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(userFormData)
+        })
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+        
+        result = await response.json()
+        console.log('✅ Create response:', result)
+        
+        if (result.status === 'exists') {
+          alert(`⚠️ Usuário já existe! ID: ${result.user_id}`)
+          return
+        }
       }
       
-      const result = await response.json()
-      console.log('✅ Backend response:', result)
-      
-      if (result.status === 'exists') {
-        alert(`⚠️ Usuário já existe! ID: ${result.user_id}`)
-        return
-      }
-      
-      // Refresh the users list to show the new user
+      // Refresh the users list to show the changes
       console.log('🔄 Refreshing users list...')
       await fetchData()
       
@@ -298,12 +323,15 @@ export default function Settings() {
       
       resetUserForm()
       
-      // Show clear success message with login instructions
-      const message = `
+      // Show appropriate success message
+      if (editingUser) {
+        alert(`✅ Usuário "${userFormData.email}" atualizado com sucesso!`)
+      } else {
+        const message = `
 🎉 USUÁRIO CRIADO COM SUCESSO NO BANCO! 
 
 📧 Email: ${userFormData.email}
-🔑 Senha: ${result.password}
+🔑 Senha: ${result.password || userFormData.password}
 👤 Nome: ${userFormData.full_name}
 🆔 ID: ${result.user_id}
 
@@ -318,9 +346,10 @@ ${result.login_test === 'success' ?
 
 🔄 A tabela foi atualizada automaticamente.
 💡 Cache limpo para evitar conflitos.
-      `.trim()
-      
-      alert(message)
+        `.trim()
+        
+        alert(message)
+      }
     } catch (error) {
       console.error('❌ Error saving user:', error)
       console.error('📊 Error details:', {

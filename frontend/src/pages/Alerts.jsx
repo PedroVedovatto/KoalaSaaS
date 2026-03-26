@@ -12,45 +12,56 @@ export default function Alerts() {
   const [showAlertDetails, setShowAlertDetails] = useState(false)
 
   useEffect(() => {
-    // Mock data for alerts
-    const mockAlerts = [
-      {
-        id: 1,
-        message: 'Contrato de Serviço A expira em 7 dias',
-        severity: 'high',
-        is_read: false,
-        is_concern: false,
-        created_at: new Date().toISOString(),
-        contract_id: 1,
-        contract_name: 'Contrato de Serviço A'
-      },
-      {
-        id: 2,
-        message: 'Novo contrato adicionado: Contrato de Software B',
-        severity: 'low',
-        is_read: false,
-        is_concern: false,
-        created_at: new Date().toISOString(),
-        contract_id: 2,
-        contract_name: 'Contrato de Software B'
-      },
-      {
-        id: 3,
-        message: 'Pagamento do Contrato de Consultoria C pendente',
-        severity: 'medium',
-        is_read: true,
-        is_concern: true,
-        created_at: new Date().toISOString(),
-        contract_id: 3,
-        contract_name: 'Contrato de Consultoria C'
+    // Buscar alertas reais do backend
+    const fetchRealAlerts = async () => {
+      try {
+        console.log('🔄 Fetching real alerts from backend...')
+        const response = await fetch('http://localhost:8000/public-alerts')
+        const data = await response.json()
+        
+        if (data.alerts && data.alerts.length > 0) {
+          console.log('✅ Real alerts loaded:', data.alerts.length)
+          setAlerts(data.alerts)
+          const unreadCount = data.alerts.filter(a => !a.is_read).length
+          setUnreadCount(unreadCount)
+          
+          // Emit event to update navbar
+          window.dispatchEvent(new CustomEvent('alertsUpdated', {
+            detail: { unreadCount: unreadCount }
+          }))
+        } else {
+          console.log('⚠️ No alerts found in backend')
+          setAlerts([])
+          setUnreadCount(0)
+          
+          // Emit event to update navbar
+          window.dispatchEvent(new CustomEvent('alertsUpdated', {
+            detail: { unreadCount: 0 }
+          }))
+        }
+      } catch (error) {
+        console.error('❌ Error fetching real alerts:', error)
+        // Fallback para mock data se falhar
+        const mockAlerts = [
+          {
+            id: 1,
+            message: 'Erro ao carregar alertas do backend',
+            severity: 'medium',
+            is_read: false,
+            is_concern: false,
+            created_at: new Date().toISOString(),
+            contract_id: null,
+            contract_name: 'Sistema'
+          }
+        ]
+        setAlerts(mockAlerts)
+        setUnreadCount(mockAlerts.filter(a => !a.is_read).length)
+      } finally {
+        setLoading(false)
       }
-    ]
-
-    setTimeout(() => {
-      setAlerts(mockAlerts)
-      setUnreadCount(mockAlerts.filter(a => !a.is_read).length)
-      setLoading(false)
-    }, 1000)
+    }
+    
+    fetchRealAlerts()
   }, [])
 
   const getSeverityColor = (severity) => {
@@ -68,22 +79,98 @@ export default function Alerts() {
     }
   }
 
-  const markAsRead = (alertId) => {
-    setAlerts(prev => prev.map(alert => 
-      alert.id === alertId ? { ...alert, is_read: true } : alert
-    ))
-    setUnreadCount(prev => Math.max(0, prev - 1))
+  const markAsRead = async (alertId) => {
+    try {
+      // Update in backend
+      const response = await fetch(`http://localhost:8000/mark-alert-read/${alertId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      
+      if (response.ok) {
+        // Update local state
+        setAlerts(prev => prev.map(alert => 
+          alert.id === alertId ? { ...alert, is_read: true } : alert
+        ))
+        const newUnreadCount = Math.max(0, unreadCount - 1)
+        setUnreadCount(newUnreadCount)
+        
+        // Emit event to update navbar
+        window.dispatchEvent(new CustomEvent('alertsUpdated', {
+          detail: { unreadCount: newUnreadCount }
+        }))
+        
+        console.log('✅ Alert marked as read:', alertId)
+      } else {
+        console.error('❌ Failed to mark alert as read')
+      }
+    } catch (error) {
+      console.error('❌ Error marking alert as read:', error)
+    }
   }
 
-  const markAllAsRead = () => {
-    setAlerts(prev => prev.map(alert => ({ ...alert, is_read: true })))
-    setUnreadCount(0)
+  const markAllAsRead = async () => {
+    try {
+      // Mark all alerts as read in backend
+      const response = await fetch('http://localhost:8000/public-alerts')
+      const data = await response.json()
+      
+      if (data.alerts && data.alerts.length > 0) {
+        // Mark each alert as read
+        const markPromises = data.alerts.map(alert => 
+          fetch(`http://localhost:8000/mark-alert-read/${alert.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          })
+        )
+        
+        await Promise.all(markPromises)
+        
+        // Update local state
+        setAlerts(prev => prev.map(alert => ({ ...alert, is_read: true })))
+        setUnreadCount(0)
+        
+        // Emit event to update navbar
+        window.dispatchEvent(new CustomEvent('alertsUpdated', {
+          detail: { unreadCount: 0 }
+        }))
+        
+        console.log('✅ All alerts marked as read')
+      }
+    } catch (error) {
+      console.error('❌ Error marking all alerts as read:', error)
+    }
   }
 
-  const toggleConcern = (alertId) => {
-    setAlerts(prev => prev.map(alert => 
-      alert.id === alertId ? { ...alert, is_concern: !alert.is_concern } : alert
-    ))
+  const toggleConcern = async (alertId) => {
+    try {
+      // Update in backend
+      const response = await fetch(`http://localhost:8000/toggle-alert-concern/${alertId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Update local state
+        setAlerts(prev => prev.map(alert => 
+          alert.id === alertId ? { ...alert, is_concern: data.is_concern } : alert
+        ))
+        
+        console.log(`✅ Alert concern ${data.is_concern ? 'enabled' : 'disabled'}:`, alertId)
+      } else {
+        console.error('❌ Failed to toggle alert concern')
+      }
+    } catch (error) {
+      console.error('❌ Error toggling alert concern:', error)
+    }
   }
 
   const handleAlertClick = (alert) => {
