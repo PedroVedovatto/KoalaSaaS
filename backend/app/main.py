@@ -639,12 +639,27 @@ def create_sample_contracts(db: Session = Depends(get_db)):
         {
             "name": "Manutenção",
             "description": "Contratos de manutenção preventiva",
-            "color": "#EF4444"
+            "color": "#EC4899"
         },
         {
             "name": "Seguro",
             "description": "Apólices de seguro",
-            "color": "#10B981"
+            "color": "#06B6D4"
+        },
+        {
+            "name": "Fornecimento",
+            "description": "Contratos de fornecimento de produtos",
+            "color": "#14B8A6"
+        },
+        {
+            "name": "Suporte",
+            "description": "Contratos de suporte técnico",
+            "color": "#F97316"
+        },
+        {
+            "name": "Terceirização",
+            "description": "Contratos de terceirização e outsourcing",
+            "color": "#A855F7"
         }
     ]
     

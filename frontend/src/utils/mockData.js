@@ -36,6 +36,30 @@ export const getMockContracts = () => {
       billing_cycle: 'quarterly',
       status: 'pendente',
       alert: 'Aguardando aprovação'
+    },
+    {
+      id: 4,
+      name: 'Contrato de Aluguel D',
+      contract_type: 'Aluguel',
+      description: 'Contrato de aluguel de equipamentos de TI',
+      value: 18000,
+      start_date: '2024-05-01',
+      end_date: '2024-11-01',
+      billing_cycle: 'monthly',
+      status: 'ativo',
+      alert: 'Vence em 10 dias'
+    },
+    {
+      id: 5,
+      name: 'Apólice de Seguro E',
+      contract_type: 'Seguro',
+      description: 'Seguro de equipamentos empresariais',
+      value: 12000,
+      start_date: '2024-04-01',
+      end_date: '2025-04-01',
+      billing_cycle: 'yearly',
+      status: 'ativo',
+      alert: null
     }
   ]
 }

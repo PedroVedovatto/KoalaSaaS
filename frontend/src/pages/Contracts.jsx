@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Search, FileText, Edit, Trash2, Calendar, DollarSign, AlertTriangle, Eye, AlertCircle, MoreVertical } from 'lucide-react'
 import LoadingScreen from '../components/LoadingScreen'
+import { settingsAPI } from '../services/settingsAPI'
 
 export default function Contracts() {
   // Store for opened windows
@@ -21,27 +22,45 @@ export default function Contracts() {
   const [filterStatusDropdown, setFilterStatusDropdown] = useState(false)
   const [filterTypeDropdown, setFilterTypeDropdown] = useState(false)
   
+  // Declare state BEFORE using it in useEffect
+  const [contractTypes, setContractTypes] = useState([])
+  const [contractStatuses, setContractStatuses] = useState([])
+
   useEffect(() => {
-    // Buscar tipos de contrato do backend também
-    const fetchContractTypes = async () => {
+    // Buscar tipos e status de contrato diretamente da API
+    const fetchContractData = async () => {
       try {
-        console.log('🔄 Fetching contract types from backend...')
-        const response = await fetch('http://localhost:8000/public-contract-types')
-        const data = await response.json()
+        console.log('🔄 Fetching contract types and statuses from API...')
+        const typesResponse = await settingsAPI.getContractTypes()
+        const statusesResponse = await settingsAPI.getContractStatuses()
         
-        if (data.contract_types && data.contract_types.length > 0) {
-          console.log('✅ Real contract types loaded:', data.contract_types.length)
-          setContractTypes(data.contract_types)
-        } else {
-          console.log('⚠️ No contract types found in backend, using mock data')
-        }
+        const types = typesResponse.data || []
+        const statuses = statusesResponse.data || []
+        
+        console.log('✅ Real contract types loaded:', types.length)
+        console.log('✅ Real contract statuses loaded:', statuses.length)
+        
+        setContractTypes(types)
+        setContractStatuses(statuses)
+        
+        // Save to localStorage for quick access
+        localStorage.setItem('contractTypes', JSON.stringify(types))
+        localStorage.setItem('contractStatuses', JSON.stringify(statuses))
       } catch (error) {
-        console.error('❌ Error fetching contract types:', error)
-        console.log('📊 Using mock contract types as fallback')
+        console.error('❌ Error fetching contract data:', error)
+        // Fallback: try to load from localStorage
+        const savedTypes = localStorage.getItem('contractTypes')
+        if (savedTypes) {
+          setContractTypes(JSON.parse(savedTypes))
+        }
+        const savedStatuses = localStorage.getItem('contractStatuses')
+        if (savedStatuses) {
+          setContractStatuses(JSON.parse(savedStatuses))
+        }
       }
     }
     
-    fetchContractTypes()
+    fetchContractData()
   }, [])
   
   // Close dropdown when clicking outside
@@ -62,12 +81,7 @@ export default function Contracts() {
     return () => document.removeEventListener('click', handleClickOutside)
   }, [activeDropdown, filterStatusDropdown, filterTypeDropdown])
   
-  const [contractTypes, setContractTypes] = useState([])
-  const [contractStatuses, setContractStatuses] = useState([
-    { id: 1, name: 'ativo', description: 'Contrato ativo e em vigor', color: '#10B981' },
-    { id: 2, name: 'pendente', description: 'Aguardando aprovação', color: '#F59E0B' },
-    { id: 3, name: 'encerrado', description: 'Contrato finalizado', color: '#6B7280' }
-  ])
+
   
   // Função para obter a cor do tipo de contrato
   const getContractTypeColor = (typeName) => {
@@ -225,27 +239,7 @@ export default function Contracts() {
   useEffect(() => {
     setLoading(true)
     fetchContracts()
-    
-    // Load contract types and statuses from Settings (stored in localStorage)
-    const loadSettingsData = () => {
-      try {
-        const savedTypes = localStorage.getItem('contractTypes')
-        const savedStatuses = localStorage.getItem('contractStatuses')
-        
-        if (savedTypes) {
-          setContractTypes(JSON.parse(savedTypes))
-        }
-        
-        if (savedStatuses) {
-          setContractStatuses(JSON.parse(savedStatuses))
-        }
-      } catch (error) {
-        console.error('Error loading settings data:', error)
-      }
-    }
-    
-    loadSettingsData()
-  }, [])
+  }, [searchTerm, filterStatus, filterType])
 
   const clearSearch = () => {
     setSearchTerm('')

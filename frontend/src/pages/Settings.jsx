@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, Settings as SettingsIcon, Tag, Flag, Users, Key, Shield } from 'lucide-react'
 import LoadingScreen from '../components/LoadingScreen'
 import { usersAPI } from '../services/usersAPI'
+import { settingsAPI } from '../services/settingsAPI'
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('types')
@@ -95,18 +96,17 @@ export default function Settings() {
       console.log('✅ Real users from database:', usersData.users)
       console.log('📊 Total users loaded:', usersData.users.length)
       
-      // Mock data para tipos e status (manter como está por enquanto)
-      const types = [
-        { id: 1, name: 'Serviço', description: 'Contratos de prestação de serviços', color: '#3B82F6' },
-        { id: 2, name: 'Software', description: 'Licenciamento de software', color: '#10B981' },
-        { id: 3, name: 'Consultoria', description: 'Contratos de consultoria', color: '#F59E0B' }
-      ]
+      // Fetch REAL contract types from backend
+      const typesResponse = await settingsAPI.getContractTypes()
+      const types = typesResponse.data || []
+      console.log('✅ Real contract types from database:', types)
+      console.log('📊 Total contract types loaded:', types.length)
       
-      const statuses = [
-        { id: 1, name: 'ativo', description: 'Contrato ativo e em vigor', color: '#10B981' },
-        { id: 2, name: 'pendente', description: 'Aguardando aprovação', color: '#F59E0B' },
-        { id: 3, name: 'encerrado', description: 'Contrato finalizado', color: '#6B7280' }
-      ]
+      // Fetch REAL contract statuses from backend
+      const statusesResponse = await settingsAPI.getContractStatuses()
+      const statuses = statusesResponse.data || []
+      console.log('✅ Real contract statuses from database:', statuses)
+      console.log('📊 Total contract statuses loaded:', statuses.length)
       
       // Use REAL data from backend
       setContractTypes(types)
@@ -118,7 +118,7 @@ export default function Settings() {
       localStorage.setItem('contractStatuses', JSON.stringify(statuses))
       
       setLoading(false)
-      console.log('🎉 SUCCESS: Using real users from database:', usersData.users.length, 'users loaded')
+      console.log('🎉 SUCCESS: All data loaded from backend')
       
       // Show current logged user info
       const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
@@ -144,54 +144,50 @@ export default function Settings() {
   const handleCreateType = async (e) => {
     e.preventDefault()
     try {
-      // Mock save - add to state
-      const newType = {
-        id: editingType ? editingType.id : Date.now(),
-        ...typeFormData
-      }
-      
-      let updatedTypes
+      let response
       if (editingType) {
-        updatedTypes = contractTypes.map(t => t.id === editingType.id ? newType : t)
-        console.log('Tipo atualizado (mock):', newType)
+        // UPDATE existing type
+        console.log('🔄 Atualizando tipo de contrato:', editingType.id)
+        response = await settingsAPI.updateContractType(editingType.id, typeFormData)
+        console.log('✅ Tipo atualizado:', response.data)
       } else {
-        updatedTypes = [...contractTypes, newType]
-        console.log('Tipo criado (mock):', newType)
+        // CREATE new type
+        console.log('📝 Criando novo tipo de contrato:', typeFormData)
+        response = await settingsAPI.createContractType(typeFormData)
+        console.log('✅ Tipo criado:', response.data)
       }
       
-      setContractTypes(updatedTypes)
-      localStorage.setItem('contractTypes', JSON.stringify(updatedTypes))
-      
+      // Reload data from backend
+      await fetchData()
       resetTypeForm()
     } catch (error) {
       console.error('Error saving type:', error)
+      alert('Erro ao salvar tipo de contrato: ' + error.message)
     }
   }
 
   const handleCreateStatus = async (e) => {
     e.preventDefault()
     try {
-      // Mock save - add to state
-      const newStatus = {
-        id: editingStatus ? editingStatus.id : Date.now(),
-        ...statusFormData
-      }
-      
-      let updatedStatuses
+      let response
       if (editingStatus) {
-        updatedStatuses = contractStatuses.map(s => s.id === editingStatus.id ? newStatus : s)
-        console.log('Status atualizado (mock):', newStatus)
+        // UPDATE existing status
+        console.log('🔄 Atualizando status de contrato:', editingStatus.id)
+        response = await settingsAPI.updateContractStatus(editingStatus.id, statusFormData)
+        console.log('✅ Status atualizado:', response.data)
       } else {
-        updatedStatuses = [...contractStatuses, newStatus]
-        console.log('Status criado (mock):', newStatus)
+        // CREATE new status
+        console.log('📝 Criando novo status de contrato:', statusFormData)
+        response = await settingsAPI.createContractStatus(statusFormData)
+        console.log('✅ Status criado:', response.data)
       }
       
-      setContractStatuses(updatedStatuses)
-      localStorage.setItem('contractStatuses', JSON.stringify(updatedStatuses))
-      
+      // Reload data from backend
+      await fetchData()
       resetStatusForm()
     } catch (error) {
       console.error('Error saving status:', error)
+      alert('Erro ao salvar status de contrato: ' + error.message)
     }
   }
 
@@ -218,13 +214,14 @@ export default function Settings() {
   const handleDeleteType = async (id) => {
     if (window.confirm('Tem certeza que deseja excluir este tipo de contrato?')) {
       try {
-        // Mock delete - remove from state
-        const updatedTypes = contractTypes.filter(t => t.id !== id)
-        setContractTypes(updatedTypes)
-        localStorage.setItem('contractTypes', JSON.stringify(updatedTypes))
-        console.log('Tipo deletado (mock):', id)
+        console.log('🗑️ Deletando tipo de contrato:', id)
+        await settingsAPI.deleteContractType(id)
+        console.log('✅ Tipo deletado:', id)
+        // Reload data from backend
+        await fetchData()
       } catch (error) {
         console.error('Error deleting contract type:', error)
+        alert('Erro ao deletar tipo de contrato: ' + error.message)
       }
     }
   }
@@ -232,13 +229,14 @@ export default function Settings() {
   const handleDeleteStatus = async (id) => {
     if (window.confirm('Tem certeza que deseja excluir este status de contrato?')) {
       try {
-        // Mock delete - remove from state
-        const updatedStatuses = contractStatuses.filter(s => s.id !== id)
-        setContractStatuses(updatedStatuses)
-        localStorage.setItem('contractStatuses', JSON.stringify(updatedStatuses))
-        console.log('Status deletado (mock):', id)
+        console.log('🗑️ Deletando status de contrato:', id)
+        await settingsAPI.deleteContractStatus(id)
+        console.log('✅ Status deletado:', id)
+        // Reload data from backend
+        await fetchData()
       } catch (error) {
         console.error('Error deleting contract status:', error)
+        alert('Erro ao deletar status de contrato: ' + error.message)
       }
     }
   }
